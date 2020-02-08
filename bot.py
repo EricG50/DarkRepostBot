@@ -22,6 +22,8 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
 bigbookpost = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/d8ptjx/the_big_book_of_reposts/")
 announcements = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/exspu7/announcement/")
 
+ind = False
+
 darkjk = reddit.subreddit("darkjokes")
 
 logstr = '[{0}]: {1}\n'
@@ -42,9 +44,7 @@ def main():
         return
 
     log("Connected to reddit")
-
-    global ind
-    ind = False
+    
     if not os.path.isfile(postsxml):
         ind = True
         with open('posts.xml', 'a') as w:
