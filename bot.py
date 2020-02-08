@@ -8,6 +8,9 @@ import keyboard
 name ='darkrepostbot'
 procpf = "processedposts.txt"
 replystr = 'This is a repost. I found this {0} times. Best match {1} {2}. \n Report error in chat'
+postsxml = 'posts.xml'
+
+replogstr = 'repost: \n url: {0} \n title: {1} \n text: {2} \noriginalpost: \n url: {3} \n title: {4} \n text: {5} \n match: {6} \n \n'
 
 reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      client_secret = "HVwC1jqHZA_PL6N7mIUL2_qWMhQ",
@@ -19,17 +22,14 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
 bigbookpost = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/d8ptjx/the_big_book_of_reposts/")
 announcements = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/exspu7/announcement/")
 
-pindex = ET.parse('posts.xml')
-root = pindex.getroot()
-
 darkjk = reddit.subreddit("darkjokes")
 
-logf = open("log.txt", 'a')
 logstr = '[{0}]: {1}\n'
 
 def log(message):
-    time = datetime.utcnow()
-    logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
+    with open("log.txt", 'a') as logf:
+        time = datetime.utcnow()
+        logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
 
 def main():
 
@@ -42,6 +42,14 @@ def main():
         return
 
     log("Connected to reddit")
+
+    if not os.path.isfile(postsxml):
+       with open('posts.xml', 'a') as w:
+           w.write('<posts></posts>')
+    
+    pindex = ET.parse(postsxml)
+    global root
+    root = pindex.getroot()
 
     if not os.path.isfile(procpf):
         f = open(procpf, 'a')
@@ -62,9 +70,9 @@ def main():
     while True:
         print("Started processing")
         loop(procp, bigbook)
-        pindex.write('posts.xml')
+        pindex.write(postsxml)
         print("Finished processing. Hold q to exit")
-        time.sleep(1)
+        time.sleep(2)
         if keyboard.is_pressed('q'):
             break
         time.sleep(5)
@@ -72,40 +80,66 @@ def main():
     print("Exiting")
     log("Exiting")
 
-    pindex.write('posts.xml')
+    pindex.write(postsxml)
 
     with open(procpf, 'w') as f:
         for id in procp:
             f.write(id + ',')
 
 def loop(procp, bigbook):
-    for subm in darkjk.new(limit=10):
+    dnew = darkjk.new(limit= 1000)
+    dhot = darkjk.hot(limit= 1000)
+    dtop = darkjk.top(limit= 1000)
+
+    for subm in dnew:
         if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
             log("Processing post " + subm.id)            
-            processpost(subm)
+            processpost(subm, bigbook)
+            log("Processed post " + subm.id)
+            procp.append(subm.id)
+    
+    for subm in dhot:
+        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
+            log("Processing post " + subm.id)            
+            processpost(subm, bigbook)
             log("Processed post " + subm.id)
             procp.append(subm.id)
 
-def processpost(subm):
+    for subm in dtop:
+        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
+            log("Processing post " + subm.id)            
+            processpost(subm, bigbook)
+            log("Processed post " + subm.id)
+            procp.append(subm.id)
+
+def processpost(subm, bigbook):
     titlewords1 = subm.title.lower().split(' ')
-    textwords1 = subm.selftext.lower().split(' ')
+    text1 = subm.selftext.lower()
+    textwc1 = 0
+    twc1 = len(titlewords1)
+
+    if type(text1) is str:
+        textwords1 = text1.split(' ')
+        textwc1 = len(textwords1)
 
     repost = False
     found = 0
     bestmatch = 0
     bestmatchid = ''
-
-    twc1 = len(titlewords1)
-    textwc1 = len(textwords1)
+    
+    
     for p in root:
         title = p[0].text
-        text = p[1].text
+        text2 = p[1].text
 
         titlewords2 = title.split(' ')
-        textwords2 = text.split(' ')
         twc2 = len(titlewords2)
-        textwc2 = len(textwords2)
 
+        textwc2 = 0
+        if type(text2) is str:
+            textwords2 = text2.split(' ')
+            textwc2 = len(textwords2)
+        
         titlemwords = 0
         textmwords = 0
         if abs(twc1 - twc2) < max(twc1, twc2) / 4:
@@ -118,7 +152,10 @@ def processpost(subm):
                     textmwords = textmwords + 1
 
             titlematch = (float(titlemwords) / max(twc1, twc2)) * 100
-            textmatch = (float(textmwords) / max(textwc1, textwc2)) * 100
+            if max(textwc1, textwc2) != 0:
+                textmatch = (float(textmwords) / max(textwc1, textwc2)) * 100
+            else:
+                textmatch = titlematch
 
             match = (titlematch + textmatch) / 2
 
@@ -126,7 +163,7 @@ def processpost(subm):
                 found = found + 1
                 log('Found exact match ')
                 repost = True
-            elif match > 80:
+            elif match > 90:
                 found = found + 1
                 log('Found close match ' + str(match))
                 repost = True
@@ -135,12 +172,29 @@ def processpost(subm):
                 bestmatch = match
                 bestmatchid = p[2].text
     if repost:
-        log('Post is a repost, url: ' + subm.shortlink)
         bm = reddit.submission(id= bestmatchid)
-        url = bm.shortlink
+        if bm.created_utc > subm.created_utc:
+            op = subm
+            rp = bm
+            log("Found a repost of this " + rp.shortlink)
+            indexpost(op)
+            log('Indexed post ' + op.id)
+        else:
+            op = bm
+            rp = subm
+        log('Post is a repost, url: ' + rp.shortlink)
+        
+        url = op.shortlink
         reply = replystr.format(found, bestmatch, url)
-        subm.reply(reply)
-        log('Replied ' + reply)
+        log('Replying ' + reply)
+        try:
+            rp.reply(reply)
+            log('Replied succesfully')
+        except:
+            log('Error replying')
+        
+        with open('replog.txt', 'a') as rep:
+            rep.write(replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch))
     else:
         log('Post is not a repost')
         indexpost(subm)
