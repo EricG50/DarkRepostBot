@@ -43,8 +43,11 @@ def main():
 
     log("Connected to reddit")
 
+    global ind
+    ind = False
     if not os.path.isfile(postsxml):
-       with open('posts.xml', 'a') as w:
+        ind = True
+        with open('posts.xml', 'a') as w:
            w.write('<posts></posts>')
     
     pindex = ET.parse(postsxml)
@@ -81,9 +84,15 @@ def main():
     log("Exiting")
 
 def loop(procp, bigbook):
-    dnew = darkjk.new(limit= 50)
-    dhot = darkjk.hot(limit= 50)
-    dtop = darkjk.top(limit= 50)
+    if ind:
+        dnew = darkjk.new(limit= 1000)
+        dhot = darkjk.hot(limit= 1000)
+        dtop = darkjk.top(limit= 1000)
+        ind = False
+    else:
+        dnew = darkjk.new(limit= 50)
+        dhot = darkjk.hot(limit= 50)
+        dtop = darkjk.top(limit= 50)
 
     for subm in dnew:
         if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
