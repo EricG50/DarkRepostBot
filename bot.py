@@ -71,25 +71,19 @@ def main():
         print("Started processing")
         loop(procp, bigbook)
         pindex.write(postsxml)
-        print("Finished processing. Hold q to exit")
-        time.sleep(2)
-        if keyboard.is_pressed('q'):
-            break
+        with open(procpf, 'w') as f:
+            for id in procp:
+                f.write(id + ',')
+        print("Finished processing")
         time.sleep(5)
 
     print("Exiting")
     log("Exiting")
 
-    pindex.write(postsxml)
-
-    with open(procpf, 'w') as f:
-        for id in procp:
-            f.write(id + ',')
-
 def loop(procp, bigbook):
-    dnew = darkjk.new(limit= 1000)
-    dhot = darkjk.hot(limit= 1000)
-    dtop = darkjk.top(limit= 1000)
+    dnew = darkjk.new(limit= 50)
+    dhot = darkjk.hot(limit= 50)
+    dtop = darkjk.top(limit= 50)
 
     for subm in dnew:
         if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
@@ -183,6 +177,7 @@ def processpost(subm, bigbook):
             op = bm
             rp = subm
         log('Post is a repost, url: ' + rp.shortlink)
+        print('Found repost')
         
         url = op.shortlink
         reply = replystr.format(found, bestmatch, url)
@@ -190,8 +185,10 @@ def processpost(subm, bigbook):
         try:
             rp.reply(reply)
             log('Replied succesfully')
+            print('Replied succesfully')
         except:
             log('Error replying')
+            print('Error replying')
         
         with open('replog.txt', 'a') as rep:
             rep.write(replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch))
