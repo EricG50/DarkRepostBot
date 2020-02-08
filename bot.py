@@ -22,8 +22,6 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
 bigbookpost = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/d8ptjx/the_big_book_of_reposts/")
 announcements = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/exspu7/announcement/")
 
-ind = False
-
 darkjk = reddit.subreddit("darkjokes")
 
 logstr = '[{0}]: {1}\n'
@@ -44,6 +42,8 @@ def main():
         return
 
     log("Connected to reddit")
+
+    ind = False
     
     if not os.path.isfile(postsxml):
         ind = True
@@ -72,7 +72,8 @@ def main():
     
     while True:
         print("Started processing")
-        loop(procp, bigbook)
+        loop(procp, bigbook, ind)
+        ind = False
         pindex.write(postsxml)
         with open(procpf, 'w') as f:
             for id in procp:
@@ -83,12 +84,11 @@ def main():
     print("Exiting")
     log("Exiting")
 
-def loop(procp, bigbook):
+def loop(procp, bigbook, ind):
     if ind:
         dnew = darkjk.new(limit= 1000)
         dhot = darkjk.hot(limit= 1000)
         dtop = darkjk.top(limit= 1000)
-        ind = False
     else:
         dnew = darkjk.new(limit= 50)
         dhot = darkjk.hot(limit= 50)
