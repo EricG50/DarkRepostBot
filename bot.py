@@ -7,7 +7,7 @@ import keyboard
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
-replystr = 'This is a repost. I found this {0} times. Best match {1} {2}. \n Report error in chat'
+replystr = 'This is a repost. I found this {0} times. Best match {1}% {2}. \n Report error in chat'
 postsxml = 'posts.xml'
 
 replogstr = 'repost: \n url: {0} \n title: {1} \n text: {2} \noriginalpost: \n url: {3} \n title: {4} \n text: {5} \n match: {6} \n \n'
@@ -33,7 +33,7 @@ def log(message):
 
 def main():
 
-    log("Starting bot")
+    log("\nStarting bot")
 
     if reddit.user.me() == name:
         print("connection ok")
@@ -166,7 +166,7 @@ def processpost(subm, bigbook):
                 found = found + 1
                 log('Found exact match ')
                 repost = True
-            elif match > 90:
+            elif match > 85:
                 found = found + 1
                 log('Found close match ' + str(match))
                 repost = True
@@ -175,6 +175,11 @@ def processpost(subm, bigbook):
                 bestmatch = match
                 bestmatchid = p[2].text
     if repost:
+        if subm.id == bestmatchid:
+            print('Error processed post wich was already on index')
+            log('Error processed post wich was already on index')
+            log('Post is not a repost')
+            return
         bm = reddit.submission(id= bestmatchid)
         if bm.created_utc > subm.created_utc:
             op = subm
