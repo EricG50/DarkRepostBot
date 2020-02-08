@@ -3,7 +3,6 @@ import os.path
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
-import keyboard
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
