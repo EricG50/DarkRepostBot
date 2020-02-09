@@ -6,7 +6,7 @@ from datetime import datetime
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
-replystr = 'This is a repost. I found this {0} times. Best match {1}% {2}. \n Report error in chat'
+replystr = '**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nReport error in chat'
 postsxml = 'posts.xml'
 
 replogstr = 'repost: \n url: {0} \n title: {1} \n text: {2} \noriginalpost: \n url: {3} \n title: {4} \n text: {5} \n match: {6} \n \n'
@@ -90,12 +90,12 @@ def loop(procp, bigbook, ind):
         dtop = darkjk.top(limit= 1000)
     else:
         dnew = darkjk.new(limit= 50)
-        dhot = darkjk.hot(limit= 50)
-        dtop = darkjk.top(limit= 50)
+        dhot = darkjk.hot(limit= 10)
+        dtop = darkjk.top(limit= 10)
 
     for subm in dnew:
         if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
-            log("Processing post " + subm.id)            
+            log("Processing post " + subm.id + ' ' + subm.shortlink)            
             processpost(subm, bigbook)
             log("Processed post " + subm.id)
             procp.append(subm.id)
@@ -120,6 +120,13 @@ def processpost(subm, bigbook):
     textwc1 = 0
     twc1 = len(titlewords1)
 
+    lastseenurl = ''
+    lastseentime = 0
+    firstseenurl = ''
+    firstseentime = subm.created_utc
+
+    matches = []
+
     if type(text1) is str:
         textwords1 = text1.split(' ')
         textwc1 = len(textwords1)
@@ -128,9 +135,11 @@ def processpost(subm, bigbook):
     found = 0
     bestmatch = 0
     bestmatchid = ''
-    
+    indexedposts = 0
     
     for p in root:
+        indexedposts = indexedposts + 1
+
         title = p[0].text
         text2 = p[1].text
 
@@ -161,20 +170,22 @@ def processpost(subm, bigbook):
 
             match = (titlematch + textmatch) / 2
 
-            if match == 100:
-                found = found + 1
-                log('Found exact match ')
-                repost = True
-            elif match > 85:
-                found = found + 1
-                log('Found close match ' + str(match))
-                repost = True
+            if match > 85:
+                if match == 100:
+                    found = found + 1
+                    log('Found exact match ' + p[2].text)
+                    repost = True
+                else:
+                    found = found + 1
+                    log('Found close match ' + str(match) + ' ' + p[2].text)
+                    repost = True
+                matches.append(p[2].text)
             
             if match > bestmatch:
                 bestmatch = match
                 bestmatchid = p[2].text
     if repost:
-        if subm.id == bestmatchid:
+        if subm.id in matches:
             print('Error processed post wich was already on index')
             log('Error processed post wich was already on index')
             log('Post is not a repost')
@@ -184,16 +195,31 @@ def processpost(subm, bigbook):
             op = subm
             rp = bm
             log("Found a repost of this " + rp.shortlink)
-            indexpost(op)
-            log('Indexed post ' + op.id)
         else:
             op = bm
             rp = subm
+        indexpost(subm)
+        log('Indexed post ' + subm.id)
         log('Post is a repost, url: ' + rp.shortlink)
         print('Found repost')
+
+        for m in matches:
+            mp = reddit.submission(id= m)
+            t = mp.created_utc
+            if t > lastseentime:
+                lastseentime = t
+                lastseenurl = mp.shortlink
+            if t < firstseentime:
+                firstseentime = t
+                firstseenurl = mp.shortlink
         
         url = op.shortlink
-        reply = replystr.format(found, bestmatch, url)
+        pl = ''
+        if found > 1:
+            pl = 's'
+        fs = datetime.utcfromtimestamp(firstseentime)
+        ls = datetime.utcfromtimestamp(lastseentime)
+        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'))
         log('Replying ' + reply)
         try:
             rp.reply(reply)
@@ -203,8 +229,13 @@ def processpost(subm, bigbook):
             log('Error replying')
             print('Error replying')
         
-        with open('replog.txt', 'a') as rep:
-            rep.write(replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch))
+        try:
+            with open('replog.txt', 'a') as rep:
+                lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
+                rep.write(lgs)
+        except:
+            log('Error logging repost')
+            print('Error logging repost')
     else:
         log('Post is not a repost')
         indexpost(subm)
