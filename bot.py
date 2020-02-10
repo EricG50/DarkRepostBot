@@ -6,14 +6,21 @@ from datetime import datetime
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
-replystr = '**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nReport error in chat'
 postsxml = 'posts.xml'
+dataxml = 'data.xml'
+
+data = ET.parse(dataxml)
+dataroot = data.getroot()
+
+secret = dataroot.find('secret').text
+password = dataroot.find('password').text
 
 replogstr = 'repost: \n url: {0} \n title: {1} \n text: {2} \noriginalpost: \n url: {3} \n title: {4} \n text: {5} \n match: {6} \n \n'
+replystr = '**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nIndexed posts: {8} Report error in chat'
 
 reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
-                     client_secret = "HVwC1jqHZA_PL6N7mIUL2_qWMhQ",
-                     password='Jupiter.2004',
+                     client_secret= secret,
+                     password=password,
                      user_agent='u/darkrepostbot',
                      username= name
                      )
@@ -94,29 +101,29 @@ def loop(procp, bigbook, ind):
         dtop = darkjk.top(limit= 10)
 
     for subm in dnew:
-        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
+        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id and subm.is_self:
             log("Processing post " + subm.id + ' ' + subm.shortlink)            
             processpost(subm, bigbook)
             log("Processed post " + subm.id)
             procp.append(subm.id)
     
     for subm in dhot:
-        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
+        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id and subm.is_self:
             log("Processing post " + subm.id)            
             processpost(subm, bigbook)
             log("Processed post " + subm.id)
             procp.append(subm.id)
 
     for subm in dtop:
-        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id:
+        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id and subm.is_self:
             log("Processing post " + subm.id)            
             processpost(subm, bigbook)
             log("Processed post " + subm.id)
             procp.append(subm.id)
 
 def processpost(subm, bigbook):
-    titlewords1 = subm.title.lower().split(' ')
-    text1 = subm.selftext.lower()
+    titlewords1 = subm.title.strip().lower().split(' ')
+    text1 = subm.selftext
     textwc1 = 0
     twc1 = len(titlewords1)
 
@@ -128,7 +135,7 @@ def processpost(subm, bigbook):
     matches = []
 
     if type(text1) is str:
-        textwords1 = text1.split(' ')
+        textwords1 = text1.strip().lower().split(' ')
         textwc1 = len(textwords1)
 
     repost = False
@@ -219,7 +226,7 @@ def processpost(subm, bigbook):
             pl = 's'
         fs = datetime.utcfromtimestamp(firstseentime)
         ls = datetime.utcfromtimestamp(lastseentime)
-        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'))
+        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), indexedposts)
         log('Replying ' + reply)
         try:
             rp.reply(reply)
@@ -231,11 +238,16 @@ def processpost(subm, bigbook):
         
         try:
             with open('replog.txt', 'a') as rep:
-                lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
                 rep.write(lgs)
         except:
             log('Error logging repost')
             print('Error logging repost')
+            try:
+                with open('replog.txt', 'a') as rep:
+                    lgs = replogstr.format(rp.shortlink, 'Error', 'Error', op.shortlink, 'Error', 'Error', bestmatch)
+                    rep.write(lgs)
+            except:
+                return
     else:
         log('Post is not a repost')
         indexpost(subm)
