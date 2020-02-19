@@ -3,6 +3,8 @@ import os.path
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import json
+from pushshift import *
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
@@ -25,14 +27,13 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      username= name
                      )
 
-bigbookpost = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/d8ptjx/the_big_book_of_reposts/")
-announcements = reddit.submission(url= "https://www.reddit.com/r/darkjokes/comments/exspu7/announcement/")
-
 darkjk = reddit.subreddit("darkjokes")
 
 logstr = '[{0}]: {1}\n'
 
+
 def log(message):
+    #print(message)
     with open("log.txt", 'a') as logf:
         time = datetime.utcnow()
         logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
@@ -68,17 +69,10 @@ def main():
     procpstr.strip()
     procp = procpstr.split(',')
     procp.remove('')
-
-    bigb = bigbookpost.selftext
-    bigb.strip()
-    bigb = bigb.lower()
-    bigbook = bigb.split('-')
-    del bigbook[0:2]
-    del bigbook[-1]
     
     while True:
         print("Started processing")
-        loop(procp, bigbook, ind)
+        loop(procp, ind)
         ind = False
         pindex.write(postsxml)
         with open(procpf, 'w') as f:
@@ -90,38 +84,40 @@ def main():
     print("Exiting")
     log("Exiting")
 
-def loop(procp, bigbook, ind):
+def loop(procp, ind):
     if ind:
-        dnew = darkjk.new(limit= 1000)
-        dhot = darkjk.hot(limit= 1000)
-        dtop = darkjk.top(limit= 1000)
+        log('Started indexing')
+        start = int(datetime(2018, 1, 1).timestamp())
+        (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
+        postsarray = postsjson['data']
+        log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
+        while start is not None:
+            (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
+            log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
+            if start is not None:
+                postsarray.extend(postsjson['data'])
+        log('Finished querrying for posts')
+        submlist = getPosts(postsarray)
+        log('Finished getting posts')
+        log('Started indexing posts')
+        for sub in submlist:
+            subm = reddit.submission(id= sub)
+            indexpost(subm)
+        log('Finished indexing posts')
     else:
-        dnew = darkjk.new(limit= 50)
-        dhot = darkjk.hot(limit= 10)
-        dtop = darkjk.top(limit= 10)
+        submlist = darkjk.new(limit= 50)
+        procposts(submlist, procp)
 
-    for subm in dnew:
-        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id and subm.is_self:
+
+def procposts(submlist, procp):
+    for subm in submlist:
+        if subm.id not in procp and subm.is_self:
             log("Processing post " + subm.id + ' ' + subm.shortlink)            
-            processpost(subm, bigbook)
-            log("Processed post " + subm.id)
-            procp.append(subm.id)
-    
-    for subm in dhot:
-        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id and subm.is_self:
-            log("Processing post " + subm.id)            
-            processpost(subm, bigbook)
+            processpost(subm)
             log("Processed post " + subm.id)
             procp.append(subm.id)
 
-    for subm in dtop:
-        if subm.id not in procp and subm.id != bigbookpost.id and subm.id != announcements.id and subm.is_self:
-            log("Processing post " + subm.id)            
-            processpost(subm, bigbook)
-            log("Processed post " + subm.id)
-            procp.append(subm.id)
-
-def processpost(subm, bigbook):
+def processpost(subm):
     titlewords1 = subm.title.strip().lower().split(' ')
     text1 = subm.selftext
     textwc1 = 0
@@ -160,13 +156,13 @@ def processpost(subm, bigbook):
         
         titlemwords = 0
         textmwords = 0
-        if abs(twc1 - twc2) < max(twc1, twc2) / 4:
+        if abs(twc1 - twc2) < max(twc1, twc2) / 3:
             for i in range(0, min(twc1, twc2)):
-                if titlewords1[i] == titlewords2[i]:
+                if titlewords1[i].strip() == titlewords2[i].strip():
                     titlemwords = titlemwords + 1
 
             for i in range(0, min(textwc1, textwc2)):
-                if textwords1[i] == textwords2[i]:
+                if textwords1[i].strip() == textwords2[i].strip():
                     textmwords = textmwords + 1
 
             titlematch = (float(titlemwords) / max(twc1, twc2)) * 100
