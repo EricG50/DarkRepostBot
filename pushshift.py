@@ -15,7 +15,7 @@ def getPushshiftData(sub=None, before=None, after=None, ids=None):
         suffix += '&ids='+','.join(ids)
 
     url = 'https://api.pushshift.io/reddit/search/'+searchType+'?sort=asc&sort_type=created_utc&size=1000'+suffix
-    print('loading '+url)
+    #print('loading '+url)
     r = requests.get(url)
     #with open('data.json', 'wb') as w:
     #w.write(r.content)

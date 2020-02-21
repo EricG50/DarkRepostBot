@@ -233,6 +233,7 @@ def processpost(subm):
             print('Error replying')
         
         try:
+            lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
             with open('replog.txt', 'a') as rep:
                 rep.write(lgs)
         except:
