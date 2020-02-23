@@ -70,6 +70,7 @@ def main():
     global root
     root = pindex.getroot()
 
+    global statxml
     statxml = ET.parse(statfile)
     global stat
     stat = statxml.getroot()
@@ -89,7 +90,6 @@ def main():
         print("Started processing")
         loop(procp, ind)
         ind = False
-        statxml.write(statfile)
         pindex.write(postsxml)
         with open(procpf, 'w') as f:
             for id in procp:
@@ -129,6 +129,7 @@ def loop(procp, ind):
         inp.text = str(indexedposts)
         reposts.text = str(reposts)
         procpost.text = str(len(procp))
+        statxml.write(statfile)
         uploadstats(stats, stat)
 
 
