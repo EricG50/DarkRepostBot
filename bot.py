@@ -100,39 +100,6 @@ def main():
     print("Exiting")
     log("Exiting")
 
-def loop(procp, ind):
-    if ind:
-        log('Started indexing')
-        start = int(datetime(2018, 1, 1).timestamp())
-        (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
-        postsarray = postsjson['data']
-        log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
-        while start is not None:
-            (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
-            log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
-            if start is not None:
-                postsarray.extend(postsjson['data'])
-        log('Finished querrying for posts')
-        submlist = getPosts(postsarray)
-        log('Finished getting posts')
-        log('Started indexing posts')
-        for sub in submlist:
-            subm = reddit.submission(id= sub)
-            indexpost(subm)
-        log('Finished indexing posts')
-    else:
-        submlist = darkjk.new(limit= 50)
-        procposts(submlist, procp)
-        inp = stat.find('indexedposts')
-        reposts = stat.find('repostsfound')
-        procpost = stat.find('processedposts')
-        inp.text = str(indexedposts)
-        reposts.text = str(reposts)
-        procpost.text = str(len(procp))
-        statxml.write(statfile)
-        uploadstats(stats, stat)
-
-
 def procposts(submlist, procp):
     for subm in submlist:
         if subm.id not in procp and subm.is_self:
@@ -273,6 +240,38 @@ def processpost(subm):
         log('Post is not a repost')
         indexpost(subm)
         log('Indexed post')
+
+def loop(procp, ind):
+    if ind:
+        log('Started indexing')
+        start = int(datetime(2018, 1, 1).timestamp())
+        (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
+        postsarray = postsjson['data']
+        log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
+        while start is not None:
+            (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
+            log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
+            if start is not None:
+                postsarray.extend(postsjson['data'])
+        log('Finished querrying for posts')
+        submlist = getPosts(postsarray)
+        log('Finished getting posts')
+        log('Started indexing posts')
+        for sub in submlist:
+            subm = reddit.submission(id= sub)
+            indexpost(subm)
+        log('Finished indexing posts')
+    else:
+        submlist = darkjk.new(limit= 50)
+        procposts(submlist, procp)
+        inp = stat.find('indexedposts')
+        reposts = stat.find('repostsfound')
+        procpost = stat.find('processedposts')
+        inp.text = str(indexedposts)
+        reposts.text = str(reposts)
+        procpost.text = str(len(procp))
+        statxml.write(statfile)
+        uploadstats(stats, stat)
 
 def indexpost(subm):
     post = ET.SubElement(root, 'Post')
