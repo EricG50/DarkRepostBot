@@ -129,6 +129,8 @@ def processpost(subm):
     found = 0
     bestmatch = 0
     bestmatchid = ''
+
+    indexedposts = 0
     
     for p in root:
         indexedposts = indexedposts + 1
