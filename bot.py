@@ -63,7 +63,7 @@ def main():
            w.write('<posts></posts>')
     
     if not os.path.isfile(statfile):
-        with open(statfile), 'a') as w:
+        with open(statfile, 'a') as w:
            w.write('<statistics></statistics>')
     
     pindex = ET.parse(postsxml)
