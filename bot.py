@@ -5,9 +5,11 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import json
 from pushshift import *
+from statuploader import *
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
+statfile = 'stat.xml'
 postsxml = 'posts.xml'
 dataxml = 'data.xml'
 
@@ -18,7 +20,7 @@ secret = dataroot.find('secret').text
 password = dataroot.find('password').text
 
 replogstr = 'repost: \n url: {0} \n title: {1} \n text: {2} \noriginalpost: \n url: {3} \n title: {4} \n text: {5} \n match: {6} \n \n'
-replystr = '**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nIndexed posts: {8} Report error in chat'
+replystr = '**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nIndexed posts: {8} r/darkrepostbot'
 
 reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      client_secret= secret,
@@ -27,10 +29,13 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      username= name
                      )
 
-darkjk = reddit.subreddit("darkjokes")
+darkjk = reddit.subreddit('darkjokes')
+stats = reddit.submission(url='https://www.reddit.com/r/darkrepostbot/comments/f7hf89/statistics/')
 
 logstr = '[{0}]: {1}\n'
 
+indexedposts = 0
+reposts = 0
 
 def log(message):
     #print(message)
@@ -54,12 +59,22 @@ def main():
     
     if not os.path.isfile(postsxml):
         ind = True
-        with open('posts.xml', 'a') as w:
+        with open(postsxml, 'a') as w:
            w.write('<posts></posts>')
+    
+    if not os.path.isfile(statfile):
+        with open(statfile), 'a') as w:
+           w.write('<statistics></statistics>')
     
     pindex = ET.parse(postsxml)
     global root
     root = pindex.getroot()
+
+    statxml = ET.parse(statfile)
+    global stat
+    stat = statxml.getroot()
+
+    reposts = int(statsxml.find('repostsfound').text)
 
     if not os.path.isfile(procpf):
         f = open(procpf, 'a')
@@ -107,6 +122,13 @@ def loop(procp, ind):
     else:
         submlist = darkjk.new(limit= 50)
         procposts(submlist, procp)
+        inp = statsxml.find('indexedposts')
+        reposts = statsxml.find('repostsfound')
+        procpost = statsxml.find('processedposts')
+        inp.text = str(indexedposts)
+        reposts.text = str(reposts)
+        procpost.text = str(len(procp))
+        stat.write(statfile)
 
 
 def procposts(submlist, procp):
@@ -138,7 +160,6 @@ def processpost(subm):
     found = 0
     bestmatch = 0
     bestmatchid = ''
-    indexedposts = 0
     
     for p in root:
         indexedposts = indexedposts + 1
@@ -194,6 +215,7 @@ def processpost(subm):
             log('Post is not a repost')
             return
         bm = reddit.submission(id= bestmatchid)
+        reposts = reposts + 1
         if bm.created_utc > subm.created_utc:
             op = subm
             rp = bm
