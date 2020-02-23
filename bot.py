@@ -129,6 +129,7 @@ def loop(procp, ind):
         reposts.text = str(reposts)
         procpost.text = str(len(procp))
         stat.write(statfile)
+        uploadstats(stats, statsxml)
 
 
 def procposts(submlist, procp):
