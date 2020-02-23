@@ -74,7 +74,7 @@ def main():
     global stat
     stat = statxml.getroot()
 
-    reposts = int(statsxml.find('repostsfound').text)
+    reposts = int(statxml.find('repostsfound').text)
 
     if not os.path.isfile(procpf):
         f = open(procpf, 'a')
@@ -122,14 +122,14 @@ def loop(procp, ind):
     else:
         submlist = darkjk.new(limit= 50)
         procposts(submlist, procp)
-        inp = statsxml.find('indexedposts')
-        reposts = statsxml.find('repostsfound')
-        procpost = statsxml.find('processedposts')
+        inp = statxml.find('indexedposts')
+        reposts = statxml.find('repostsfound')
+        procpost = statxml.find('processedposts')
         inp.text = str(indexedposts)
         reposts.text = str(reposts)
         procpost.text = str(len(procp))
         stat.write(statfile)
-        uploadstats(stats, statsxml)
+        uploadstats(stats, statxml)
 
 
 def procposts(submlist, procp):
