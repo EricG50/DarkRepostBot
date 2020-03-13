@@ -1,5 +1,5 @@
 import praw
-import os
+import os.path
 import xml.etree.ElementTree as ET
 from datetime import datetime
 

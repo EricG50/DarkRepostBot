@@ -5,7 +5,9 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import json
 from pushshift import *
+from util import *
 from stats import Stats
+
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
@@ -17,9 +19,8 @@ dataroot = data.getroot()
 
 secret = dataroot.find('secret').text
 password = dataroot.find('password').text
-
-replogstr = 'repost: \n url: {0} \n title: {1} \n text: {2} \noriginalpost: \n url: {3} \n title: {4} \n text: {5} \n match: {6} \n \n'
-replystr = "**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nIndexed posts: {8}   r/darkrepostbot    \nWomen's history is our history"
+replogstr = dataroot.find('replogstr').text
+replystr = dataroot.find('replystr').text
 
 reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      client_secret= secret,
@@ -32,6 +33,7 @@ darkjk = reddit.subreddit('darkjokes')
 statspost = reddit.submission(url='https://www.reddit.com/r/darkrepostbot/comments/f7hf89/statistics/')
 
 st = Stats()
+ps = Posts()
 
 logstr = '[{0}]: {1}\n'
 def log(message):
@@ -54,47 +56,17 @@ def main():
     else:
         logp("failed to connect")
         return
-
-    ind = False
-    
-    if not os.path.isfile(postsxml):
-        ind = True
-        with open(postsxml, 'a') as w:
-           w.write('<posts></posts>')
-    
-    pindex = ET.parse(postsxml)
-    global root
-    root = pindex.getroot()
-
-    if not os.path.isfile(procpf):
-        f = open(procpf, 'a')
-        f.close()
-    with open(procpf, 'r') as f:
-        procpstr = f.read()
-    procpstr.strip()
-    procp = procpstr.split(',')
-    procp.remove('')
     
     while True:
         print("Started processing")
-        loop(procp, ind)
-        ind = False
-        pindex.write(postsxml)
-        with open(procpf, 'w') as f:
-            for id in procp:
-                f.write(id + ',')
+        loop()
+        ps.ind = False
+        ps.writefiles()
         print("Finished processing")
         time.sleep(5)
 
     print("Exiting")
     logp("Exiting")
-
-def procposts(submlist, procp):
-    for subm in submlist:
-        if subm.id not in procp and subm.is_self:
-            log("Processing post " + subm.id + ' ' + subm.shortlink)            
-            processpost(subm)
-            procp.append(subm.id)
 
 def processpost(subm):
     titlewords1 = subm.title.strip().lower().split(' ')
@@ -120,7 +92,7 @@ def processpost(subm):
 
     indexedposts = 0
     
-    for p in root:
+    for p in ps.posts:
         indexedposts = indexedposts + 1
 
         title = p[0].text
@@ -166,7 +138,6 @@ def processpost(subm):
             if match > bestmatch:
                 bestmatch = match
                 bestmatchid = p[2].text
-    #78
     st.indposts = indexedposts
     if repost:
         if subm.id in matches:
@@ -208,11 +179,9 @@ def processpost(subm):
         log('Replying ' + reply)
         try:
             rp.reply(reply)
-            log('Replied succesfully')
-            print('Replied succesfully')
+            logp('Replied succesfully')
         except:
-            log('Error replying')
-            print('Error replying')
+            logp('Error replying')
         
         try:
             lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
@@ -231,8 +200,8 @@ def processpost(subm):
         indexpost(subm)
         log('Indexed post')
 
-def loop(procp, ind):
-    if ind:
+def loop():
+    if ps.ind:
         logp('Started indexing')
         start = int(datetime(2018, 1, 1).timestamp())
         (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
@@ -253,13 +222,13 @@ def loop(procp, ind):
         logp('Finished indexing posts')
     else:
         submlist = darkjk.new(limit= 50)
-        procposts(submlist, procp)
-        st.procposts = len(procp)
+        ps.processposts(submlist, processpost, log)
+        st.procposts = len(ps.procp)
         st.uploadstats(statspost)
         st.writexml()
 
 def indexpost(subm):
-    post = ET.SubElement(root, 'Post')
+    post = ET.SubElement(ps.posts, 'Post')
 	
     title = subm.title.strip()
     text = subm.selftext.strip()
