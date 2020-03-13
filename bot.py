@@ -5,13 +5,12 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import json
 from pushshift import *
-from statuploader import *
+from stats import Stats
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
-statfile = 'stat.xml'
-postsxml = 'posts.xml'
 dataxml = 'data.xml'
+postsxml = 'posts.xml'
 
 data = ET.parse(dataxml)
 dataroot = data.getroot()
@@ -20,7 +19,7 @@ secret = dataroot.find('secret').text
 password = dataroot.find('password').text
 
 replogstr = 'repost: \n url: {0} \n title: {1} \n text: {2} \noriginalpost: \n url: {3} \n title: {4} \n text: {5} \n match: {6} \n \n'
-replystr = '**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nIndexed posts: {8} r/darkrepostbot'
+replystr = "**This is a repost**. I found this {0} time{3}.    \nBest match: {1}% {2}.    \nFirst seen [here]({4}) {5}    \nLast seen [here]({6}) {7}    \n\nIndexed posts: {8}   r/darkrepostbot    \nWomen's history is our history"
 
 reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      client_secret= secret,
@@ -30,30 +29,31 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      )
 
 darkjk = reddit.subreddit('darkjokes')
-stats = reddit.submission(url='https://www.reddit.com/r/darkrepostbot/comments/f7hf89/statistics/')
+statspost = reddit.submission(url='https://www.reddit.com/r/darkrepostbot/comments/f7hf89/statistics/')
+
+st = Stats()
 
 logstr = '[{0}]: {1}\n'
-
-indexedposts = 0
-reposts = 0
-
 def log(message):
-    #print(message)
+    with open("log.txt", 'a') as logf:
+        time = datetime.utcnow()
+        logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
+
+def logp(message):
+    print(message)
     with open("log.txt", 'a') as logf:
         time = datetime.utcnow()
         logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
 
 def main():
-
-    log("\nStarting bot")
+    
+    logp("\nStarting bot")
 
     if reddit.user.me() == name:
-        print("connection ok")
+        logp("connection ok")
     else:
-        print("failed to connect")
+        logp("failed to connect")
         return
-
-    log("Connected to reddit")
 
     ind = False
     
@@ -62,20 +62,9 @@ def main():
         with open(postsxml, 'a') as w:
            w.write('<posts></posts>')
     
-    if not os.path.isfile(statfile):
-        with open(statfile, 'a') as w:
-           w.write('<statistics></statistics>')
-    
     pindex = ET.parse(postsxml)
     global root
     root = pindex.getroot()
-
-    global statxml
-    statxml = ET.parse(statfile)
-    global stat
-    stat = statxml.getroot()
-
-    reposts = int(stat.find('repostsfound').text)
 
     if not os.path.isfile(procpf):
         f = open(procpf, 'a')
@@ -98,14 +87,13 @@ def main():
         time.sleep(5)
 
     print("Exiting")
-    log("Exiting")
+    logp("Exiting")
 
 def procposts(submlist, procp):
     for subm in submlist:
         if subm.id not in procp and subm.is_self:
             log("Processing post " + subm.id + ' ' + subm.shortlink)            
             processpost(subm)
-            log("Processed post " + subm.id)
             procp.append(subm.id)
 
 def processpost(subm):
@@ -175,10 +163,11 @@ def processpost(subm):
                     log('Found close match ' + str(match) + ' ' + p[2].text)
                     repost = True
                 matches.append(p[2].text)
-            
             if match > bestmatch:
                 bestmatch = match
                 bestmatchid = p[2].text
+    #78
+    st.indposts = indexedposts
     if repost:
         if subm.id in matches:
             print('Error processed post wich was already on index')
@@ -186,7 +175,7 @@ def processpost(subm):
             log('Post is not a repost')
             return
         bm = reddit.submission(id= bestmatchid)
-        reposts = reposts + 1
+        st.reposts = st.reposts + 1
         if bm.created_utc > subm.created_utc:
             op = subm
             rp = bm
@@ -230,8 +219,7 @@ def processpost(subm):
             with open('replog.txt', 'a') as rep:
                 rep.write(lgs)
         except:
-            log('Error logging repost')
-            print('Error logging repost')
+            logp('Error logging repost')
             try:
                 with open('replog.txt', 'a') as rep:
                     lgs = replogstr.format(rp.shortlink, 'Error', 'Error', op.shortlink, 'Error', 'Error', bestmatch)
@@ -245,35 +233,30 @@ def processpost(subm):
 
 def loop(procp, ind):
     if ind:
-        log('Started indexing')
+        logp('Started indexing')
         start = int(datetime(2018, 1, 1).timestamp())
         (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
         postsarray = postsjson['data']
-        log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
+        logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
         while start is not None:
             (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
-            log('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
             if start is not None:
                 postsarray.extend(postsjson['data'])
-        log('Finished querrying for posts')
+                logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
+        logp('Finished querrying for posts')
         submlist = getPosts(postsarray)
-        log('Finished getting posts')
-        log('Started indexing posts')
+        logp('Finished getting posts')
+        logp('Started indexing posts')
         for sub in submlist:
             subm = reddit.submission(id= sub)
             indexpost(subm)
-        log('Finished indexing posts')
+        logp('Finished indexing posts')
     else:
         submlist = darkjk.new(limit= 50)
         procposts(submlist, procp)
-        inp = stat.find('indexedposts')
-        repost = stat.find('repostsfound')
-        procpost = stat.find('processedposts')
-        inp.text = str(indexedposts)
-        repost.text = str(reposts)
-        procpost.text = str(len(procp))
-        statxml.write(statfile)
-        uploadstats(stats, stat)
+        st.procposts = len(procp)
+        st.uploadstats(statspost)
+        st.writexml()
 
 def indexpost(subm):
     post = ET.SubElement(root, 'Post')
