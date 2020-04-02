@@ -26,8 +26,3 @@ def getPushshiftData(sub=None, before=None, after=None, ids=None):
         prev_end_date = None
     return (data, prev_end_date)
 
-def getPosts(posts):
-    postslist = []
-    for post in posts:
-        postslist.append(post['id'])
-    return postslist

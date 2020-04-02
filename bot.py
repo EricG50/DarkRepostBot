@@ -7,7 +7,8 @@ import json
 from pushshift import *
 from util import *
 from stats import Stats
-
+from log import *
+import requests
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
@@ -32,20 +33,8 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
 darkjk = reddit.subreddit('darkjokes')
 statspost = reddit.submission(url='https://www.reddit.com/r/darkrepostbot/comments/f7hf89/statistics/')
 
-st = Stats()
 ps = Posts()
-
-logstr = '[{0}]: {1}\n'
-def log(message):
-    with open("log.txt", 'a') as logf:
-        time = datetime.utcnow()
-        logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
-
-def logp(message):
-    print(message)
-    with open("log.txt", 'a') as logf:
-        time = datetime.utcnow()
-        logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
+st = Stats(statspost)
 
 def main():
     
@@ -57,14 +46,19 @@ def main():
         logp("failed to connect")
         return
     
-    while True:
-        print("Started processing")
-        loop()
-        ps.ind = False
+    try:
+        while True:
+            print("Started processing")
+            loop()
+            print("Finished processing")
+            time.sleep(5)
+    except Exception as e:
+        st.write()
         ps.writefiles()
-        print("Finished processing")
-        time.sleep(5)
+        raise e
 
+    st.write()
+    ps.writefiles()
     print("Exiting")
     logp("Exiting")
 
@@ -89,16 +83,16 @@ def processpost(subm):
     found = 0
     bestmatch = 0
     bestmatchid = ''
-
-    indexedposts = 0
     
     for p in ps.posts:
-        indexedposts = indexedposts + 1
+        if p['id'] == subm.id:
+            continue
+        if not 'title' in p or not 'selftext' in p:
+            continue
+        title2 = p['title']
+        text2 = p['selftext']
 
-        title = p[0].text
-        text2 = p[1].text
-
-        titlewords2 = title.split(' ')
+        titlewords2 = title2.split(' ')
         twc2 = len(titlewords2)
 
         textwc2 = 0
@@ -126,25 +120,18 @@ def processpost(subm):
             match = (titlematch + textmatch) / 2
 
             if match > 85:
+                found = found + 1
                 if match == 100:
-                    found = found + 1
-                    log('Found exact match ' + p[2].text)
+                    log('Found exact match ' + p['url'])
                     repost = True
                 else:
-                    found = found + 1
-                    log('Found close match ' + str(match) + ' ' + p[2].text)
+                    log('Found close match ' + str(match) + ' ' + p['url'])
                     repost = True
-                matches.append(p[2].text)
+                matches.append(p['id'])
             if match > bestmatch:
                 bestmatch = match
-                bestmatchid = p[2].text
-    st.indposts = indexedposts
+                bestmatchid = p['id']
     if repost:
-        if subm.id in matches:
-            print('Error processed post wich was already on index')
-            log('Error processed post wich was already on index')
-            log('Post is not a repost')
-            return
         bm = reddit.submission(id= bestmatchid)
         st.reposts = st.reposts + 1
         if bm.created_utc > subm.created_utc:
@@ -156,8 +143,7 @@ def processpost(subm):
             rp = subm
         indexpost(subm)
         log('Indexed post ' + subm.id)
-        log('Post is a repost, url: ' + rp.shortlink)
-        print('Found repost')
+        logp('Post is a repost, url: ' + rp.shortlink)
 
         for m in matches:
             mp = reddit.submission(id= m)
@@ -175,8 +161,8 @@ def processpost(subm):
             pl = 's'
         fs = datetime.utcfromtimestamp(firstseentime)
         ls = datetime.utcfromtimestamp(lastseentime)
-        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), indexedposts)
-        log('Replying ' + reply)
+        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'))
+        log('Replying: ' + reply)
         try:
             rp.reply(reply)
             logp('Replied succesfully')
@@ -201,44 +187,17 @@ def processpost(subm):
         log('Indexed post')
 
 def loop():
-    if ps.ind:
-        logp('Started indexing')
-        start = int(datetime(2018, 1, 1).timestamp())
-        (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
-        postsarray = postsjson['data']
-        logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
-        while start is not None:
-            (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
-            if start is not None:
-                postsarray.extend(postsjson['data'])
-                logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
-        logp('Finished querrying for posts')
-        submlist = getPosts(postsarray)
-        logp('Finished getting posts')
-        logp('Started indexing posts')
-        for sub in submlist:
-            subm = reddit.submission(id= sub)
-            indexpost(subm)
-        logp('Finished indexing posts')
-    else:
-        submlist = darkjk.new(limit= 50)
-        ps.processposts(submlist, processpost, log)
-        st.procposts = len(ps.procp)
-        st.uploadstats(statspost)
-        st.writexml()
+    submlist = darkjk.new(limit= 200)
+    ps.processposts(submlist, processpost)
+    st.indposts = len(ps.posts)
+    st.procposts = len(ps.procp)
+    st.write()
 
 def indexpost(subm):
-    post = ET.SubElement(ps.posts, 'Post')
-	
-    title = subm.title.strip()
-    text = subm.selftext.strip()
-
-    ptitle = ET.SubElement(post, 'Title')
-    ptitle.text = title.lower()
-    ptext = ET.SubElement(post, 'Text')
-    ptext.text = text.lower()
-    pid = ET.SubElement(post, 'Id')
-    pid.text = subm.id
+    url = 'https://api.pushshift.io/reddit/search/submission/?id=' + subm.id
+    r = requests.get(url)
+    data = json.loads(r.content)
+    ps.posts.append(data['data'][0])
     
 if __name__== "__main__":
     main()
