@@ -26,6 +26,7 @@ class Stats:
         self.procposts = int(self.pp.text)
         self.upThread = threading.Thread(target=self.uploadthread)
         self.upThread.start()
+
     def uploadstats(self):
         try:
             nl = '    \n'
@@ -42,6 +43,7 @@ class Stats:
         self.rep.text = str(self.reposts)
         self.pp.text = str(self.procposts)
         self.statxml.write(self.statfile)
+        
     def uploadthread(self):
         logp('Started statuploader thread')
         while True:
