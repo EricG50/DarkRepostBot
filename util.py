@@ -39,7 +39,7 @@ def cleansubmtext(txt):
     chars = "\\`*_{}[]()-.,!?"
     for c in chars:
         if c in txt:
-            txt = txt.replace(c, '')
+            txt = txt.replace(c, ' ')
     return txt.strip().lower()
 
 def compareposts(title1, text1, title2, text2):
