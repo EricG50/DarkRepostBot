@@ -1,13 +1,15 @@
 import praw
-import os.path
+import os
 import time
 import xml.etree.ElementTree as ET
+import threading
 from datetime import datetime
 import json
 from pushshift import *
 from util import *
 from stats import Stats
-
+from log import *
+from posts import Posts
 
 name ='darkrepostbot'
 procpf = "processedposts.txt"
@@ -32,24 +34,29 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
 darkjk = reddit.subreddit('darkjokes')
 statspost = reddit.submission(url='https://www.reddit.com/r/darkrepostbot/comments/f7hf89/statistics/')
 
-st = Stats()
+st = Stats(statspost)
 ps = Posts()
 
-logstr = '[{0}]: {1}\n'
-def log(message):
-    with open("log.txt", 'a') as logf:
-        time = datetime.utcnow()
-        logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
-
-def logp(message):
-    print(message)
-    with open("log.txt", 'a') as logf:
-        time = datetime.utcnow()
-        logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
+def refresh():
+    logp('Started refresh thread')
+    while True:
+        time.sleep(1850)
+        try:
+            reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
+                    client_secret= secret,
+                    password=password,
+                    user_agent='u/darkrepostbot',
+                    username= name
+                    )
+            logp('Refreshed reddit')
+            if reddit.user.me() == name:
+                logp("connection ok")
+        except:
+            logp('Failed to refresh reddit. Terminating script')
+            os._exit()
 
 def main():
-    
-    logp("\nStarting bot")
+    logp("Starting bot")
 
     if reddit.user.me() == name:
         logp("connection ok")
@@ -57,22 +64,25 @@ def main():
         logp("failed to connect")
         return
     
-    while True:
-        print("Started processing")
-        loop()
-        ps.ind = False
-        ps.writefiles()
-        print("Finished processing")
-        time.sleep(5)
+    refthread = threading.Thread(target=refresh)
+    refthread.start()
 
-    print("Exiting")
+    try:
+        while True:
+            print("Started processing")
+            loop()
+            print("Finished processing")
+            time.sleep(30)
+    except Exception as e:
+        ps.writefiles()
+        st.writefile()
+
     logp("Exiting")
 
 def processpost(subm):
-    titlewords1 = subm.title.strip().lower().split(' ')
+    title1 = subm.title
     text1 = subm.selftext
-    textwc1 = 0
-    twc1 = len(titlewords1)
+    
 
     lastseenurl = ''
     lastseentime = 0
@@ -81,70 +91,36 @@ def processpost(subm):
 
     matches = []
 
-    if type(text1) is str:
-        textwords1 = text1.strip().lower().split(' ')
-        textwc1 = len(textwords1)
-
     repost = False
+    present = False
     found = 0
     bestmatch = 0
     bestmatchid = ''
-
-    indexedposts = 0
     
     for p in ps.posts:
-        indexedposts = indexedposts + 1
+        if p.find('Id').text == subm.id:
+            present = True
+            continue
+        title2 = p.find('Title').text
+        text2 = p.find('Text').text
 
-        title = p[0].text
-        text2 = p[1].text
+        match = compareposts(title1, text1, title2, text2)
 
-        titlewords2 = title.split(' ')
-        twc2 = len(titlewords2)
-
-        textwc2 = 0
-        if type(text2) is str:
-            textwords2 = text2.split(' ')
-            textwc2 = len(textwords2)
-        
-        titlemwords = 0
-        textmwords = 0
-        if abs(twc1 - twc2) < max(twc1, twc2) / 3:
-            for i in range(0, min(twc1, twc2)):
-                if titlewords1[i].strip() == titlewords2[i].strip():
-                    titlemwords = titlemwords + 1
-
-            for i in range(0, min(textwc1, textwc2)):
-                if textwords1[i].strip() == textwords2[i].strip():
-                    textmwords = textmwords + 1
-
-            titlematch = (float(titlemwords) / max(twc1, twc2)) * 100
-            if max(textwc1, textwc2) != 0:
-                textmatch = (float(textmwords) / max(textwc1, textwc2)) * 100
+        matchid = p.find('Id').text
+        if match > 85:
+            matches.append(matchid)
+            if match == 100:
+                found = found + 1
+                log('Found exact match ' + matchid)
+                repost = True
             else:
-                textmatch = titlematch
-
-            match = (titlematch + textmatch) / 2
-
-            if match > 85:
-                if match == 100:
-                    found = found + 1
-                    log('Found exact match ' + p[2].text)
-                    repost = True
-                else:
-                    found = found + 1
-                    log('Found close match ' + str(match) + ' ' + p[2].text)
-                    repost = True
-                matches.append(p[2].text)
-            if match > bestmatch:
-                bestmatch = match
-                bestmatchid = p[2].text
-    st.indposts = indexedposts
+                found = found + 1
+                log('Found close match ' + str(match) + ' ' + matchid)
+                repost = True
+        if match > bestmatch:
+            bestmatch = match
+            bestmatchid = matchid
     if repost:
-        if subm.id in matches:
-            print('Error processed post wich was already on index')
-            log('Error processed post wich was already on index')
-            log('Post is not a repost')
-            return
         bm = reddit.submission(id= bestmatchid)
         st.reposts = st.reposts + 1
         if bm.created_utc > subm.created_utc:
@@ -154,8 +130,6 @@ def processpost(subm):
         else:
             op = bm
             rp = subm
-        indexpost(subm)
-        log('Indexed post ' + subm.id)
         log('Post is a repost, url: ' + rp.shortlink)
         print('Found repost')
 
@@ -175,14 +149,19 @@ def processpost(subm):
             pl = 's'
         fs = datetime.utcfromtimestamp(firstseentime)
         ls = datetime.utcfromtimestamp(lastseentime)
-        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), indexedposts)
+        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts))
         log('Replying ' + reply)
         try:
             rp.reply(reply)
             logp('Replied succesfully')
         except:
             logp('Error replying')
-        
+
+        try:
+            rp.downvote()
+        except:
+            logp('Error downvoting')
+
         try:
             lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
             with open('replog.txt', 'a') as rep:
@@ -194,51 +173,20 @@ def processpost(subm):
                     lgs = replogstr.format(rp.shortlink, 'Error', 'Error', op.shortlink, 'Error', 'Error', bestmatch)
                     rep.write(lgs)
             except:
-                return
+                pass
     else:
-        log('Post is not a repost')
-        indexpost(subm)
-        log('Indexed post')
+        log('Post is NOT a repost')
+
+    if not present:
+        indexpost(subm, ps)
 
 def loop():
-    if ps.ind:
-        logp('Started indexing')
-        start = int(datetime(2018, 1, 1).timestamp())
-        (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
-        postsarray = postsjson['data']
-        logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
-        while start is not None:
-            (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
-            if start is not None:
-                postsarray.extend(postsjson['data'])
-                logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
-        logp('Finished querrying for posts')
-        submlist = getPosts(postsarray)
-        logp('Finished getting posts')
-        logp('Started indexing posts')
-        for sub in submlist:
-            subm = reddit.submission(id= sub)
-            indexpost(subm)
-        logp('Finished indexing posts')
-    else:
-        submlist = darkjk.new(limit= 50)
-        ps.processposts(submlist, processpost, log)
-        st.procposts = len(ps.procp)
-        st.uploadstats(statspost)
-        st.writexml()
-
-def indexpost(subm):
-    post = ET.SubElement(ps.posts, 'Post')
-	
-    title = subm.title.strip()
-    text = subm.selftext.strip()
-
-    ptitle = ET.SubElement(post, 'Title')
-    ptitle.text = title.lower()
-    ptext = ET.SubElement(post, 'Text')
-    ptext.text = text.lower()
-    pid = ET.SubElement(post, 'Id')
-    pid.text = subm.id
+    submlist = darkjk.new(limit= 50)
+    ps.processposts(submlist, processpost)
+    st.procposts = len(ps.procp)
+    st.indposts = len(ps.posts)
+    ps.writefiles()
+    st.writefile()
     
 if __name__== "__main__":
     main()
