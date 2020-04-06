@@ -175,7 +175,7 @@ def processpost(subm):
             except:
                 pass
     else:
-        log('Post is NOT a repost')
+        log('Post is NOT a repost bestmatch' + bestmatch + ' ' + bestmatchid)
 
     if not present:
         indexpost(subm, ps)
