@@ -76,6 +76,8 @@ def main():
     except Exception as e:
         ps.writefiles()
         st.writefile()
+        logp("Exiting")
+        raise e
 
     logp("Exiting")
 
@@ -175,7 +177,7 @@ def processpost(subm):
             except:
                 pass
     else:
-        log('Post is NOT a repost bestmatch' + bestmatch + ' ' + bestmatchid)
+        log('Post is NOT a repost bestmatch' + str(bestmatch) + ' ' + str(bestmatchid))
 
     if not present:
         indexpost(subm, ps)
