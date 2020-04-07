@@ -11,7 +11,6 @@ from stats import Stats
 from log import *
 from posts import Posts
 
-name ='darkrepostbot'
 procpf = "processedposts.txt"
 dataxml = 'data.xml'
 postsxml = 'posts.xml'
@@ -19,6 +18,7 @@ postsxml = 'posts.xml'
 data = ET.parse(dataxml)
 dataroot = data.getroot()
 
+name = dataroot.find('username').text
 secret = dataroot.find('secret').text
 password = dataroot.find('password').text
 replogstr = dataroot.find('replogstr').text
@@ -32,7 +32,7 @@ reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      )
 
 darkjk = reddit.subreddit('darkjokes')
-statspost = reddit.submission(url=dataroot.find('statspost'))
+statspost = reddit.submission(url=dataroot.find('statspost').text)
 
 st = Stats(statspost)
 ps = Posts()
