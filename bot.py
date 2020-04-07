@@ -27,12 +27,12 @@ replystr = dataroot.find('replystr').text
 reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                      client_secret= secret,
                      password=password,
-                     user_agent='u/darkrepostbot',
+                     user_agent='darkrepostbot',
                      username= name
                      )
 
 darkjk = reddit.subreddit('darkjokes')
-statspost = reddit.submission(url='https://www.reddit.com/r/darkrepostbot/comments/f7hf89/statistics/')
+statspost = reddit.submission(url=dataroot.find('statspost'))
 
 st = Stats(statspost)
 ps = Posts()
@@ -45,14 +45,14 @@ def refresh():
             reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
                     client_secret= secret,
                     password=password,
-                    user_agent='u/darkrepostbot',
+                    user_agent='darkrepostbot',
                     username= name
                     )
             logp('Refreshed reddit')
             if reddit.user.me() == name:
                 logp("connection ok")
         except:
-            logp('Failed to refresh reddit. Terminating script')
+            logerror('Failed to refresh reddit. Terminating script')
             os._exit()
 
 def main():
@@ -61,7 +61,7 @@ def main():
     if reddit.user.me() == name:
         logp("connection ok")
     else:
-        logp("failed to connect")
+        logerror("failed to connect")
         return
     
     refthread = threading.Thread(target=refresh)
@@ -76,6 +76,7 @@ def main():
     except Exception as e:
         ps.writefiles()
         st.writefile()
+        logerror(str(e))
         logp("Exiting")
         raise e
 
@@ -132,6 +133,7 @@ def processpost(subm):
         else:
             op = bm
             rp = subm
+
         log('Post is a repost, url: ' + rp.shortlink)
         print('Found repost')
 
@@ -157,19 +159,19 @@ def processpost(subm):
             rp.reply(reply)
             logp('Replied succesfully')
         except:
-            logp('Error replying')
+            logerror('Error replying')
 
         try:
             rp.downvote()
         except:
-            logp('Error downvoting')
+            logerror('Error downvoting')
 
         try:
             lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
             with open('replog.txt', 'a') as rep:
                 rep.write(lgs)
         except:
-            logp('Error logging repost')
+            logerror('Error logging repost')
             try:
                 with open('replog.txt', 'a') as rep:
                     lgs = replogstr.format(rp.shortlink, 'Error', 'Error', op.shortlink, 'Error', 'Error', bestmatch)
@@ -177,7 +179,7 @@ def processpost(subm):
             except:
                 pass
     else:
-        log('Post is NOT a repost bestmatch' + str(bestmatch) + ' ' + str(bestmatchid))
+        log('Post is NOT a repost bestmatch ' + str(bestmatch) + ' ' + str(bestmatchid))
 
     if not present:
         indexpost(subm, ps)
