@@ -2,9 +2,10 @@ import praw
 import os.path
 import xml.etree.ElementTree as ET
 from log import *
+import difflib
                 
 def indexpost(subm, ps):
-    log('Indexed post' + subm.id)
+    log('Indexed post ' + subm.id)
     post = ET.SubElement(ps.posts, 'Post')
 	
     title = subm.title
@@ -42,32 +43,36 @@ def cleansubmtext(txt):
             txt = txt.replace(c, ' ')
     return txt.strip().lower()
 
+def cleanwords(words):
+    result = filter(lambda x: x != '' and x != '\n', words)
+    return list(result)
+
 def compareposts(title1, text1, title2, text2):
-    titlewords1 = cleansubmtext(title1).split(' ')
+    titlewords1 = cleanwords(cleansubmtext(title1).split(' '))
     textwc1 = 0
     twc1 = len(titlewords1)
     if type(text1) is str:
-        textwords1 = cleansubmtext(text1).split(' ')
+        textwords1 = cleanwords(cleansubmtext(text1).split(' '))
         textwc1 = len(textwords1)
 
-    titlewords2 = cleansubmtext(title2).split(' ')
+    titlewords2 = cleanwords(cleansubmtext(title2).split(' '))
     twc2 = len(titlewords2)
     textwc2 = 0
     if type(text2) is str:
-        textwords2 = cleansubmtext(text2).split(' ')
+        textwords2 = cleanwords(cleansubmtext(text2).split(' '))
         textwc2 = len(textwords2)
         
-    titlemwords = 0
-    textmwords = 0
-    if abs(twc1 - twc2) < max(twc1, twc2) / 3:
+    titlemwords = 0.0
+    textmwords = 0.0
+    if abs(twc1 - twc2) < max(twc1, twc2) / 3 and abs(textwc1 - textwc2) < max(textwc1, textwc2) / 2:
         for i in range(0, min(twc1, twc2)):
-            if titlewords1[i].strip() == titlewords2[i].strip():
-                 titlemwords = titlemwords + 1
-
+            match = difflib.SequenceMatcher(None, titlewords1[i], titlewords2[i]).ratio()
+            if match >= 0.6:
+                titlemwords += match
         for i in range(0, min(textwc1, textwc2)):
-            if textwords1[i].strip() == textwords2[i].strip():
-                textmwords = textmwords + 1
-
+            match = difflib.SequenceMatcher(None, textwords1[i], textwords2[i]).ratio()
+            if match >= 0.6:
+                textmwords +=  match
         titlematch = (float(titlemwords) / max(twc1, twc2)) * 100
         if max(textwc1, textwc2) != 0:
             textmatch = (float(textmwords) / max(textwc1, textwc2)) * 100

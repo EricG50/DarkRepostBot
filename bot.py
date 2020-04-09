@@ -66,6 +66,7 @@ def main():
     
     refthread = threading.Thread(target=refresh)
     refthread.start()
+    time.sleep(0.5)
 
     try:
         while True:
@@ -153,18 +154,19 @@ def processpost(subm):
             pl = 's'
         fs = datetime.utcfromtimestamp(firstseentime)
         ls = datetime.utcfromtimestamp(lastseentime)
-        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts))
-        log('Replying ' + reply)
+        fplink = f'/message/compose?to=/r/darkrepostbot&subject=False positive&message=False positive, url: {rp.shortlink}'
+        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts), fplink)
+        log('Replying:\n' + reply)
         try:
-            rp.reply(reply)
+            rp.reply(reply + ('Mods gay ' * 600))
             logp('Replied succesfully')
-        except:
-            logerror('Error replying')
+        except Exception as e:
+            logerror("Couldn't reply: " + str(e))
 
         try:
             rp.downvote()
         except:
-            logerror('Error downvoting')
+            logerror("Couldn't downvote")
 
         try:
             lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
@@ -179,7 +181,7 @@ def processpost(subm):
             except:
                 pass
     else:
-        log('Post is NOT a repost bestmatch ' + str(bestmatch) + ' ' + str(bestmatchid))
+        log('Post is NOT a repost. Bestmatch: ' + str(bestmatch) + ' ' + str(bestmatchid))
 
     if not present:
         indexpost(subm, ps)
