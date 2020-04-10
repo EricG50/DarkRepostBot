@@ -4,12 +4,11 @@ import time
 import xml.etree.ElementTree as ET
 import threading
 from datetime import datetime
-import json
-from pushshift import *
 from util import *
 from stats import Stats
 from log import *
 from posts import Posts
+import sys
 
 procpf = "processedposts.txt"
 dataxml = 'data.xml'
@@ -23,26 +22,28 @@ secret = dataroot.find('secret').text
 password = dataroot.find('password').text
 replogstr = dataroot.find('replogstr').text
 replystr = dataroot.find('replystr').text
+sub = dataroot.find('subreddit').text
+client_id = dataroot.find('clientid').text
 
-reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
+reddit = praw.Reddit(client_id = client_id,
                      client_secret= secret,
                      password=password,
                      user_agent='darkrepostbot',
                      username= name
                      )
 
-darkjk = reddit.subreddit('darkjokes')
+darkjk = reddit.subreddit(sub)
 statspost = reddit.submission(url=dataroot.find('statspost').text)
 
 st = Stats(statspost)
-ps = Posts()
+ps = Posts(sub)
 
 def refresh():
     logp('Started refresh thread')
     while True:
         time.sleep(1850)
         try:
-            reddit = praw.Reddit(client_id = "mSk2wE1LwPilxg",
+            reddit = praw.Reddit(client_id = client_id,
                     client_secret= secret,
                     password=password,
                     user_agent='darkrepostbot',
@@ -53,7 +54,7 @@ def refresh():
                 logp("connection ok")
         except:
             logerror('Failed to refresh reddit. Terminating script')
-            os._exit()
+            exit(1)
 
 def main():
     logp("Starting bot")
@@ -79,9 +80,25 @@ def main():
         st.writefile()
         logerror(str(e))
         logp("Exiting")
-        raise e
+        exit(1)
+    except KeyboardInterrupt:
+        logp('Intrerrupted, exiting')
+        ps.writefiles()
+        st.writefile()
+        exit(0)
 
-    logp("Exiting")
+def exit(code):
+    try:
+        sys.exit(code)
+    except SystemExit:
+        os._exit(code)
+
+def comment(text, post):
+    try:
+        post.reply(text)
+        logp('Replied succesfully')
+    except Exception as e:
+        logerror("Couldn't reply: " + str(e))
 
 def processpost(subm):
     title1 = subm.title
@@ -154,14 +171,11 @@ def processpost(subm):
             pl = 's'
         fs = datetime.utcfromtimestamp(firstseentime)
         ls = datetime.utcfromtimestamp(lastseentime)
-        fplink = f'/message/compose?to=/r/darkrepostbot&subject=False positive&message=False positive, url: {rp.shortlink}'
+        fplink = f'/message/compose?to=/r/darkrepostbot&subject=False-positive&message=False-positive, url:{rp.shortlink}'
         reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts), fplink)
         log('Replying:\n' + reply)
-        try:
-            rp.reply(reply + ('Mods gay ' * 600))
-            logp('Replied succesfully')
-        except Exception as e:
-            logerror("Couldn't reply: " + str(e))
+        
+        comment(reply, rp)
 
         try:
             rp.downvote()
@@ -191,8 +205,7 @@ def loop():
     ps.processposts(submlist, processpost)
     st.procposts = len(ps.procp)
     st.indposts = len(ps.posts)
-    ps.writefiles()
-    st.writefile()
+
     
 if __name__== "__main__":
     main()

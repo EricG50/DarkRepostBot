@@ -8,9 +8,9 @@ from util import *
 class Posts:
     postsfile = 'posts.xml'
     procpfile = 'processedposts.txt'
-    def __init__(self):
+    def __init__(self, subreddit):
         if not os.path.isfile(self.postsfile): 
-            self.index()
+            self.index(subreddit)
         else:
             self.postsxml = ET.parse(self.postsfile)
             self.posts = self.postsxml.getroot()
@@ -33,15 +33,15 @@ class Posts:
         with open(self.procpfile, 'w') as f:
             for id in self.procp:
                 f.write(id + ',')
-    def index(self):
+    def index(self, subreddit):
         logp('Started indexing')
         self.posts = ET.Element('posts')
         start = int(datetime(2018, 1, 1).timestamp())
-        (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
+        (postsjson, start) = getPushshiftData(sub= subreddit, after= start)
         postsarray = postsjson['data']
         logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
         while start is not None:
-            (postsjson, start) = getPushshiftData(sub= 'darkjokes', after= start)
+            (postsjson, start) = getPushshiftData(sub= subreddit, after= start)
             if start is not None:
                 postsarray.extend(postsjson['data'])
                 logp('Pushshift search: ' + str(start) + ' ' + 'totalposts: ' + str(len(postsarray)))
