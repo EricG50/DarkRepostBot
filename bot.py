@@ -134,7 +134,7 @@ def processpost(subm):
 
         matchid = p.find('Id').text
         if match > 85:
-            logobj['closematches'].append({ 'url': idtoUrl(matchid), 'match': match, 'time': int(p.find('Time').text) })
+            logobj['closematches'].append({ 'url': idtoUrl(matchid), 'match': match, 'time': float(p.find('Time').text) })
             found += found + 1
             if match == 100:
                 log('Found exact match ' + idtoUrl(matchid))
@@ -180,7 +180,8 @@ def processpost(subm):
             plural = 's'
         fs = datetime.utcfromtimestamp(firstseentime)
         ls = datetime.utcfromtimestamp(lastseentime)
-        fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=False-positive, url:{rp.shortlink}'
+        reportmessage = f"""{{report: {{ reason: "false-positive", url: "{rp.shortlink}" }}}}"""
+        fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=' + reportmessage
         reply = replystr.format(found, bestmatch, op.shortlink, plural, firstseenurl,
                                 fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl,
                                 ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts), fplink)
