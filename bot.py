@@ -92,7 +92,7 @@ def exit(code):
     
 def comment(text, post):
     try:
-        #post.reply(text)
+        post.reply(text)
         logp('Replied succesfully')
     except Exception as e:
         logerror("Couldn't reply: " + str(e))
