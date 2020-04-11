@@ -20,7 +20,7 @@ dataroot = data.getroot()
 name = dataroot.find('username').text
 secret = dataroot.find('secret').text
 password = dataroot.find('password').text
-replogstr = dataroot.find('replogstr').text
+#replogstr = dataroot.find('replogstr').text
 replystr = dataroot.find('replystr').text
 sub = dataroot.find('subreddit').text
 client_id = dataroot.find('clientid').text
@@ -37,6 +37,7 @@ statspost = reddit.submission(url=dataroot.find('statspost').text)
 
 st = Stats(statspost)
 ps = Posts(sub)
+plog = ProcessedLogger()
 
 def refresh():
     logp('Started refresh thread')
@@ -76,26 +77,22 @@ def main():
             print("Finished processing")
             time.sleep(30)
     except Exception as e:
-        ps.writefiles()
-        st.writefile()
         logerror(str(e))
         logp("Exiting")
         exit(1)
     except KeyboardInterrupt:
         logp('Intrerrupted, exiting')
-        ps.writefiles()
-        st.writefile()
         exit(0)
 
 def exit(code):
-    try:
-        sys.exit(code)
-    except SystemExit:
-        os._exit(code)
-
+    ps.writefiles()
+    st.writefile()
+    plog.write()
+    os._exit(code)
+    
 def comment(text, post):
     try:
-        post.reply(text)
+        #post.reply(text)
         logp('Replied succesfully')
     except Exception as e:
         logerror("Couldn't reply: " + str(e))
@@ -110,7 +107,15 @@ def processpost(subm):
     firstseenurl = ''
     firstseentime = subm.created_utc
 
-    matches = []
+    logobj = {
+        'title': title1,
+        'author': subm.author.name,
+        'time': subm.created_utc,
+        'url': subm.shortlink,
+        'bestmatch': {},
+        'closematches': [],
+        'repost': False
+    }
 
     repost = False
     present = False
@@ -129,18 +134,22 @@ def processpost(subm):
 
         matchid = p.find('Id').text
         if match > 85:
-            matches.append(matchid)
+            logobj['closematches'].append({ 'url': idtoUrl(matchid), 'match': match, 'time': int(p.find('Time').text) })
+            found += found + 1
             if match == 100:
-                found = found + 1
-                log('Found exact match ' + matchid)
+                log('Found exact match ' + idtoUrl(matchid))
                 repost = True
             else:
-                found = found + 1
-                log('Found close match ' + str(match) + ' ' + matchid)
+                log('Found close match ' + str(match) + ' ' + idtoUrl(matchid))
                 repost = True
         if match > bestmatch:
             bestmatch = match
             bestmatchid = matchid
+    
+    logobj['repost'] = repost
+    logobj['bestmatch'] = { 'url': idtoUrl(bestmatchid), 'match': bestmatch }
+    plog.logprocessed(logobj)
+
     if repost:
         bm = reddit.submission(id= bestmatchid)
         st.reposts = st.reposts + 1
@@ -155,24 +164,26 @@ def processpost(subm):
         log('Post is a repost, url: ' + rp.shortlink)
         print('Found repost')
 
-        for m in matches:
-            mp = reddit.submission(id= m)
-            t = mp.created_utc
+        plog.logrepost(logobj)
+
+        for match in logobj['closematches']:
+            t = match['time']
             if t > lastseentime:
                 lastseentime = t
-                lastseenurl = mp.shortlink
+                lastseenurl = match['url']
             if t < firstseentime:
                 firstseentime = t
-                firstseenurl = mp.shortlink
+                firstseenurl = match['url']
         
-        url = op.shortlink
-        pl = ''
+        plural = ''
         if found > 1:
-            pl = 's'
+            plural = 's'
         fs = datetime.utcfromtimestamp(firstseentime)
         ls = datetime.utcfromtimestamp(lastseentime)
-        fplink = f'/message/compose?to=/r/darkrepostbot&subject=False-positive&message=False-positive, url:{rp.shortlink}'
-        reply = replystr.format(found, bestmatch, url, pl, firstseenurl, fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl, ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts), fplink)
+        fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=False-positive, url:{rp.shortlink}'
+        reply = replystr.format(found, bestmatch, op.shortlink, plural, firstseenurl,
+                                fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl,
+                                ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts), fplink)
         log('Replying:\n' + reply)
         
         comment(reply, rp)
@@ -182,20 +193,20 @@ def processpost(subm):
         except:
             logerror("Couldn't downvote")
 
-        try:
-            lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
-            with open('replog.txt', 'a') as rep:
-                rep.write(lgs)
-        except:
-            logerror('Error logging repost')
-            try:
-                with open('replog.txt', 'a') as rep:
-                    lgs = replogstr.format(rp.shortlink, 'Error', 'Error', op.shortlink, 'Error', 'Error', bestmatch)
-                    rep.write(lgs)
-            except:
-                pass
+        # try:
+        #     lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
+        #     with open('replog.txt', 'a') as rep:
+        #         rep.write(lgs)
+        # except:
+        #     logerror('Error logging repost')
+        #     try:
+        #         with open('replog.txt', 'a') as rep:
+        #             lgs = replogstr.format(rp.shortlink, 'Error', 'Error', op.shortlink, 'Error', 'Error', bestmatch)
+        #             rep.write(lgs)
+        #     except:
+        #         pass
     else:
-        log('Post is NOT a repost. Bestmatch: ' + str(bestmatch) + ' ' + str(bestmatchid))
+        log('Post is NOT a repost. Bestmatch: ' + str(bestmatch) + ' ' + idtoUrl(bestmatchid))
 
     if not present:
         indexpost(subm, ps)
@@ -203,9 +214,9 @@ def processpost(subm):
 def loop():
     submlist = darkjk.new(limit= 50)
     ps.processposts(submlist, processpost)
+    plog.write()
     st.procposts = len(ps.procp)
     st.indposts = len(ps.posts)
-
     
 if __name__== "__main__":
     main()

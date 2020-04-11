@@ -1,5 +1,6 @@
 import praw
 import os.path
+import json
 import xml.etree.ElementTree as ET
 from log import *
 import difflib
@@ -15,6 +16,8 @@ def indexpost(subm, ps):
     ptitle.text = cleantext(title)
     ptext = ET.SubElement(post, 'Text')
     ptext.text = cleantext(text)
+    time = ET.SubElement(post, 'Time')
+    time.text = str(subm.created_utc)
     pid = ET.SubElement(post, 'Id')
     pid.text = subm.id
 
@@ -30,6 +33,8 @@ def indexpostjson(subm, ps):
     ptitle.text = cleantext(title)
     ptext = ET.SubElement(post, 'Text')
     ptext.text = cleantext(text)
+    time = ET.SubElement(post, 'Time')
+    time.text = str(subm['created_utc'])
     pid = ET.SubElement(post, 'Id')
     pid.text = subm['id']
 
@@ -46,6 +51,9 @@ def cleansubmtext(txt):
 def cleanwords(words):
     result = filter(lambda x: x != '' and x != '\n', words)
     return list(result)
+
+def idtoUrl(id):
+    return 'https://redd.it/' + id
 
 def compareposts(title1, text1, title2, text2):
     titlewords1 = cleanwords(cleansubmtext(title1).split(' '))
