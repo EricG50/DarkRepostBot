@@ -2,50 +2,53 @@ import praw
 import os.path
 import xml.etree.ElementTree as ET
 import time
+import json
 import threading
 from log import *
 from datetime import datetime
 
 class Stats:
-    statfile = 'stat.xml'
-    reposts = 0
-    indposts = 0
-    procposts = 0
-    def __init__(self, statspost):
-        if not os.path.isfile(self.statfile):
-            with open(self.statfile, 'a') as w:
-                w.write('<statistics><indexedposts>0</indexedposts><repostsfound>0</repostsfound><processedposts>0</processedposts></statistics>')
+    statfile = 'stat.json'
+    stats = {
+        'reposts': 0,
+        'indexedposts': 0,
+        'processedposts': 0,
+        'falsepostives': 0
+    }
+    def __init__(self, statspost, formatstring):
+        if os.path.isfile(self.statfile):
+            with open(self.statfile, 'r') as f:
+                stats = json.load(f)
+        self.formstr = formatstring
         self.statspost = statspost
-        self.statxml = ET.parse(self.statfile)
-        self.stat = self.statxml.getroot()
-        self.inp = self.stat.find('indexedposts')
-        self.rep = self.stat.find('repostsfound')
-        self.pp = self.stat.find('processedposts')
-        self.reposts = int(self.rep.text)
-        self.indposts = int(self.inp.text)
-        self.procposts = int(self.pp.text)
+        self.reposts = stats['reposts']
+        self.indposts = stats['indexedposts']
+        self.procposts = stats['processedposts']
+        self.falsepos = stats['falsepostives']
         self.upThread = threading.Thread(target=self.uploadthread)
         self.upThread.start()
 
     def uploadstats(self):
         try:
-            nl = '    \n'
-            repostsrate = str((float(self.reposts) / self.procposts) * 100)
+            repostrate = str((float(self.reposts) / self.procposts) * 100)
+            errorrate = str((float(self.falsepos) / self.reposts) * 100)
             time = datetime.utcnow()
-            statstring = 'Indexed posts: ' + str(self.indposts) + nl + 'Reposts found: ' + str(self.reposts) + nl + 'Processed posts: ' + str(self.procposts) + nl + 'Repost rate: ' + repostsrate + '%' + nl + 'Updated: ' + time.strftime("%d/%m/%Y %H:%M:%S")
+            statstring = self.formstr.format(self.indposts, self.reposts, self.procposts, repostrate, self.falsepos, errorrate, time.strftime('%d/%m/%Y %H:%M:%S'))
             self.statspost.edit(statstring)
             logp('Succesfully uploaded statistics')
         except:
-            logp('Failed to upload statistics')
+            logerror('Failed to upload statistics')
         
     def writefile(self):
-        self.inp.text = str(self.indposts)
-        self.rep.text = str(self.reposts)
-        self.pp.text = str(self.procposts)
-        self.statxml.write(self.statfile)
+        stats['reposts'] = self.reposts
+        stats['indexedposts'] = self.indposts
+        stats['processedposts'] = self.procposts
+        stats['falsepositives'] = self.falsepos
+        with open(self.statfile, 'w') as f:
+            json.dump(stats, f)
         
     def uploadthread(self):
-        logp('Started statuploader thread')
+        logp('Started stats uploader thread')
         while True:
             time.sleep(600)
             self.uploadstats()

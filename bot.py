@@ -9,6 +9,7 @@ from stats import Stats
 from log import *
 from posts import Posts
 import sys
+#import server
 
 procpf = "processedposts.txt"
 dataxml = 'data.xml'
@@ -20,7 +21,6 @@ dataroot = data.getroot()
 name = dataroot.find('username').text
 secret = dataroot.find('secret').text
 password = dataroot.find('password').text
-#replogstr = dataroot.find('replogstr').text
 replystr = dataroot.find('replystr').text
 sub = dataroot.find('subreddit').text
 client_id = dataroot.find('clientid').text
