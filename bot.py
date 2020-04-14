@@ -22,6 +22,7 @@ name = dataroot.find('username').text
 secret = dataroot.find('secret').text
 password = dataroot.find('password').text
 replystr = dataroot.find('replystr').text
+statstr = dataroot.find('statsformat').text
 sub = dataroot.find('subreddit').text
 client_id = dataroot.find('clientid').text
 
@@ -35,8 +36,8 @@ reddit = praw.Reddit(client_id = client_id,
 darkjk = reddit.subreddit(sub)
 statspost = reddit.submission(url=dataroot.find('statspost').text)
 
-st = Stats(statspost)
 ps = Posts(sub)
+st = Stats(statspost, statstr)
 plog = ProcessedLogger()
 
 def refresh():
