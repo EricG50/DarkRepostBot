@@ -40,12 +40,12 @@ class Stats:
             logerror('Failed to upload statistics')
         
     def writefile(self):
-        stats['reposts'] = self.reposts
-        stats['indexedposts'] = self.indposts
-        stats['processedposts'] = self.procposts
-        stats['falsepositives'] = self.falsepos
+        self.stats['reposts'] = self.reposts
+        self.stats['indexedposts'] = self.indposts
+        self.stats['processedposts'] = self.procposts
+        self.stats['falsepositives'] = self.falsepos
         with open(self.statfile, 'w') as f:
-            json.dump(stats, f)
+            json.dump(self.stats, f)
         
     def uploadthread(self):
         logp('Started stats uploader thread')
