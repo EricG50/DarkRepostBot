@@ -37,6 +37,28 @@ reddit = praw.Reddit(client_id = client_id,
 darkjk = reddit.subreddit(sub)
 statspost = reddit.submission(url=dataroot.find('statspost').text)
 
+class ServerEventHandler:
+    @classmethod
+    def ReportFalsePositive(cls, id, message) -> int:
+        logp(f'Recieved false positive report ID: {id} Message: {message}')
+        for repost in plog.posts['reposts']:
+            rid = repost['url'].split('/')[-1]
+            if rid == id:
+                repost['falsePositive'] = True
+                repost['falsePositivemessage'] = message
+                plog.logfalsepos(repost)
+                logp('Report accepted')
+                st.falsepos += 1
+                st.uploadstats()
+                try:
+                    repostcom = reddit.comment(id= repost['commentId'])
+                    repostcom.reply('It has been determined that this is a false positive. Sorry for the error')
+                except:
+                    logerror('Failed to reply')
+                return 200
+        logp('Report rejected')
+        return 400
+
 ps = Posts(sub)
 st = Stats(statspost, statstr)
 plog = ProcessedLogger()
@@ -224,22 +246,6 @@ def loop():
     plog.write()
     st.procposts = len(ps.procp)
     st.indposts = len(ps.posts)
-    
-class ServerEventHandler:
-    @classmethod
-    def ReportFalsePositive(cls, id, message) -> int:
-        for repost in plog.posts['reposts']:
-            rid = repost['url'].split('/')[-1]
-            if rid == id:
-                repost['falsePositive'] = True
-                repost['falsePositivemessage'] = message
-                plog.logfalsepos(repost)
-                st.falsepos += 1
-                st.uploadstats()
-                repostcom = reddit.comment(id= repost['commentId'])
-                repostcom.reply('It has been determined that this is a false positive. Sorry for the error')
-                return 200
-        return 400
 
 if __name__== "__main__":
     main()

@@ -18,13 +18,13 @@ class Stats:
     def __init__(self, statspost, formatstring):
         if os.path.isfile(self.statfile):
             with open(self.statfile, 'r') as f:
-                stats = json.load(f)
+                self.stats = json.load(f)
         self.formstr = formatstring
         self.statspost = statspost
-        self.reposts = stats['reposts']
-        self.indposts = stats['indexedposts']
-        self.procposts = stats['processedposts']
-        self.falsepos = stats['falsepositives']
+        self.reposts = self.stats['reposts']
+        self.indposts = self.stats['indexedposts']
+        self.procposts = self.stats['processedposts']
+        self.falsepos = self.stats['falsepositives']
         self.upThread = threading.Thread(target=self.uploadthread)
         self.upThread.start()
 
