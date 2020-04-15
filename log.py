@@ -27,11 +27,13 @@ class ProcessedLogger:
             with open(self.logfile, 'r') as f:
                 self.posts = json.load(f)
         else:
-            self.posts = { 'reposts': [], 'processedposts': [] }
+            self.posts = { 'reposts': [], 'processedposts': [], 'falsepositives': [], 'potentialreposts': [] }
     def logprocessed(self, logobj):
         self.posts['processedposts'].append(logobj)
     def logrepost(self, logobj):
         self.posts['reposts'].append(logobj)
+    def logfalsepos(self, logobj):
+        self.posts['falsepositives'].append(logobj)
     def write(self):
         with open(self.logfile, 'w') as f:
             json.dump(self.posts, f)

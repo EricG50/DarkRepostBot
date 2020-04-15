@@ -13,7 +13,7 @@ class Stats:
         'reposts': 0,
         'indexedposts': 0,
         'processedposts': 0,
-        'falsepostives': 0
+        'falsepositives': 0
     }
     def __init__(self, statspost, formatstring):
         if os.path.isfile(self.statfile):
@@ -24,7 +24,7 @@ class Stats:
         self.reposts = stats['reposts']
         self.indposts = stats['indexedposts']
         self.procposts = stats['processedposts']
-        self.falsepos = stats['falsepostives']
+        self.falsepos = stats['falsepositives']
         self.upThread = threading.Thread(target=self.uploadthread)
         self.upThread.start()
 

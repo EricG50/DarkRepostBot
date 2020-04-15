@@ -233,7 +233,7 @@ class ServerEventHandler:
             if rid == id:
                 repost['falsePositive'] = True
                 repostp['falsePositivemessage'] = message
-                plog.posts['falsePositives'].append(repost)
+                plog.logfalsepos(repost)
                 st.falsepos += 1
                 st.uploadstats()
                 repostcom = reddit.comment(id= repost['commentId'])
