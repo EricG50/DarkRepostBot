@@ -232,7 +232,7 @@ class ServerEventHandler:
             rid = repost['url'].split('/')[-1]
             if rid == id:
                 repost['falsePositive'] = True
-                repostp['falsePositivemessage'] = message
+                repost['falsePositivemessage'] = message
                 plog.logfalsepos(repost)
                 st.falsepos += 1
                 st.uploadstats()
