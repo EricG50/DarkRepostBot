@@ -8,8 +8,9 @@ from util import *
 from stats import Stats
 from log import *
 from posts import Posts
+from server import Server
 import sys
-#import server
+
 
 procpf = "processedposts.txt"
 dataxml = 'data.xml'
@@ -39,6 +40,7 @@ statspost = reddit.submission(url=dataroot.find('statspost').text)
 ps = Posts(sub)
 st = Stats(statspost, statstr)
 plog = ProcessedLogger()
+ser = Server(port=80, repFalsePos=ServerEventHandler.ReportFalsePositive)
 
 def refresh():
     logp('Started refresh thread')
@@ -90,13 +92,15 @@ def exit(code):
     st.writefile()
     plog.write()
     os._exit(code)
-    
+
 def comment(text, post):
     try:
-        post.reply(text)
+        com = post.reply(text)
         logp('Replied succesfully')
+        return com.id
     except Exception as e:
         logerror("Couldn't reply: " + str(e))
+        return None
 
 def processpost(subm):
     title1 = subm.title
@@ -113,6 +117,7 @@ def processpost(subm):
         'author': subm.author.name,
         'time': subm.created_utc,
         'url': subm.shortlink,
+        'commentId': None,
         'bestmatch': {},
         'closematches': [],
         'repost': False
@@ -149,7 +154,6 @@ def processpost(subm):
     
     logobj['repost'] = repost
     logobj['bestmatch'] = { 'url': idtoUrl(bestmatchid), 'match': bestmatch }
-    plog.logprocessed(logobj)
 
     if repost:
         bm = reddit.submission(id= bestmatchid)
@@ -164,8 +168,6 @@ def processpost(subm):
 
         log('Post is a repost, url: ' + rp.shortlink)
         print('Found repost')
-
-        plog.logrepost(logobj)
 
         for match in logobj['closematches']:
             t = match['time']
@@ -187,8 +189,9 @@ def processpost(subm):
                                 fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl,
                                 ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts), fplink)
         log('Replying:\n' + reply)
-        
-        comment(reply, rp)
+        logobj['commentId'] = comment(reply, rp)
+
+        plog.logrepost(logobj)
 
         try:
             rp.downvote()
@@ -210,6 +213,8 @@ def processpost(subm):
     else:
         log('Post is NOT a repost. Bestmatch: ' + str(bestmatch) + ' ' + idtoUrl(bestmatchid))
 
+    plog.logprocessed(logobj)
+
     if not present:
         indexpost(subm, ps)
 
@@ -220,5 +225,21 @@ def loop():
     st.procposts = len(ps.procp)
     st.indposts = len(ps.posts)
     
+class ServerEventHandler:
+    @classmethod
+    def ReportFalsePositive(cls, id, message) -> int:
+        for repost in plog.posts['reposts']:
+            rid = repost['url'].split('/')[-1]
+            if rid == id:
+                repost['falsePositive'] = True
+                repostp['falsePositivemessage'] = message
+                plog.posts['falsePositives'].append(repost)
+                st.falsepos += 1
+                st.uploadstats()
+                repostcom = reddit.comment(id= repost['commentId'])
+                repostcom.reply('It has been determined that this is a false positive. Sorry for the error')
+                return 200
+        return 400
+
 if __name__== "__main__":
     main()

@@ -30,7 +30,7 @@ class Stats:
 
     def uploadstats(self):
         try:
-            repostrate = str((float(self.reposts) / self.procposts) * 100)
+            repostrate = str((float(self.reposts - self.falsepos) / self.procposts) * 100)
             errorrate = str((float(self.falsepos) / self.reposts) * 100)
             time = datetime.utcnow()
             statstring = self.formstr.format(self.indposts, self.reposts, self.procposts, repostrate, self.falsepos, errorrate, time.strftime('%d/%m/%Y %H:%M:%S'))
