@@ -66,7 +66,7 @@ ph = PostHanlder()
 class Server:
     def __init__(self, **kwargs):
         ph.setMethods(kwargs)
-        self.server = HTTPServer(('localhost', kwargs.get('port', 80)), Handler)
+        self.server = HTTPServer(('', kwargs.get('port', 80)), Handler)
         self.servThread = threading.Thread(target=self.serve)
         self.servThread.start()
     def serve(self):

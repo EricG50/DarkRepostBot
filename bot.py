@@ -26,6 +26,7 @@ replystr = dataroot.find('replystr').text
 statstr = dataroot.find('statsformat').text
 sub = dataroot.find('subreddit').text
 client_id = dataroot.find('clientid').text
+port = int(dataroot.find('port').text)
 
 reddit = praw.Reddit(client_id = client_id,
                      client_secret= secret,
@@ -62,7 +63,7 @@ class ServerEventHandler:
 ps = Posts(sub)
 st = Stats(statspost, statstr)
 plog = ProcessedLogger()
-ser = Server(port=80, repFalsePos=ServerEventHandler.ReportFalsePositive)
+ser = Server(port=port, repFalsePos=ServerEventHandler.ReportFalsePositive)
 
 def refresh():
     logp('Started refresh thread')
