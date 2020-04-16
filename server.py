@@ -93,9 +93,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(403)
         self.end_headers()
 
-    def log_message(self, format, *args):
-        log('"{}" {} {}'.format(args))
-
     def servererror(self, message):
         logerror(message, 5)
         self.send_response(500, message)
