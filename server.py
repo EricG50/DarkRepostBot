@@ -6,20 +6,27 @@ from http.server import BaseHTTPRequestHandler,HTTPServer
 
 class PostHanlder():
     def setMethods(self, kwargs):
-        self.reportfalsepositive = kwargs.get('repFalsePos', None)
-    def handle(self, h, body):
-        if h.path=='/repfalsepos':
-            if 'id' not in body:
-                h.send_response(400)
-                h.end_headers()
-                return
-            response = self.reportfalsepositive(body['id'], body.get('message', ''))
-            h.send_response(response)
-            h.end_headers()
-        else:
-            self.send_response(404, 'Not found')
-            self.end_headers()
+        self.repfalsepos = kwargs.get('repfalsepos', None)
+    def handle(self, path, h, body):
+        getattr(self, path)(h, body)
 
+    def repfalsepos(self, h, body):
+        if 'id' not in body:
+            h.send_response(400)
+            h.end_headers()
+            return
+        response = self.repfalsepos(body)
+        h.send_response(response)
+        h.end_headers()
+
+    def unauth(self, h, body):
+        for i, user in enumerate(h.whitelist):
+            if user['ip'] == h.client_address[0] and user['key'] == body['key']:
+                del[h.whitelist[i]]
+                logp(f"User {user['name']} IP:{user['ip']} logged out")
+                h.send_response(200)
+                h.end_headers()
+        
 class Handler(BaseHTTPRequestHandler):
     whitelist = []
     def do_GET(self):
@@ -39,16 +46,27 @@ class Handler(BaseHTTPRequestHandler):
         bodytext = self.rfile.read(content_len)
         body = json.loads(bodytext)
 
+        path = self.path.lower().replace('/', '')
+        if not hasattr(ph, path):
+            self.invalid_route()
+            return
+
         if 'key' not in body:
             self.send_response(400)
             self.end_headers()
             return
+        
         for user in self.whitelist:
             if user['ip'] == self.client_address[0] and user['key'] == body['key']:
-                try:
-                    ph.handle(self, body)
-                except Exception as e:
-                    self.servererror(str(e))
+                body['sender'] = user['name']
+                if user['permissions'] == 'all' or path in user['permissions']:
+                    try:
+                        ph.handle(path, self, body)
+                    except Exception as e:
+                        self.servererror(str(e))
+                else:
+                    self.send_response(401)
+                    self.end_headers()
                 return
         self.send_response(403)
         self.end_headers()

@@ -40,17 +40,21 @@ statspost = reddit.submission(url=dataroot.find('statspost').text)
 
 class ServerEventHandler:
     @classmethod
-    def ReportFalsePositive(cls, id, message) -> int:
-        logp(f'Recieved false positive report ID: {id} Message: {message}')
-        for repost in plog.posts['reposts']:
+    def ReportFalsePositive(cls, body) -> int:
+        id = body['id']
+        message = body['message']
+        sender = body['sender']
+        logp(f'Recieved false positive report ID:{id} Message: {message} from {sender}')
+        for i, repost in enumerate(plog.posts['reposts']):
             rid = repost['url'].split('/')[-1]
             if rid == id:
                 repost['falsePositive'] = True
                 repost['falsePositivemessage'] = message
+                plog.posts['reposts'][i] = repost
                 plog.logfalsepos(repost)
                 logp('Report accepted')
                 st.falsepos += 1
-                st.uploadstats()
+                #st.uploadstats()
                 try:
                     repostcom = reddit.comment(id= repost['commentId'])
                     repostcom.reply('It has been determined that this is a false positive. Sorry for the error')
@@ -63,7 +67,7 @@ class ServerEventHandler:
 ps = Posts(sub)
 st = Stats(statspost, statstr)
 plog = ProcessedLogger()
-ser = Server(port=port, repFalsePos=ServerEventHandler.ReportFalsePositive)
+ser = Server(port=port, repfalsepos=ServerEventHandler.ReportFalsePositive)
 
 def refresh():
     logp('Started refresh thread')

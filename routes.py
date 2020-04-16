@@ -36,7 +36,7 @@ def GETauth(h):
     for user in users['users']:
         if user['name'] == body['user'] and user['password'] == hash(body['password']):
             key = generateKey()
-            h.whitelist.append({ 'ip': h.client_address[0], 'key': key})
+            h.whitelist.append({ 'ip': h.client_address[0], 'name': user['name'], 'key': key, 'permissions': user['permissions']})
             respond(h, 200)
             h.send_header("Content-type", "text/plain")
             h.end_headers()
