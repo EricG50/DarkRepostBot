@@ -11,10 +11,7 @@ from posts import Posts
 from server import Server
 import sys
 
-
-procpf = "processedposts.txt"
 dataxml = 'data.xml'
-postsxml = 'posts.xml'
 
 data = ET.parse(dataxml)
 dataroot = data.getroot()
@@ -59,7 +56,7 @@ class ServerEventHandler:
                     repostcom = reddit.comment(id= repost['commentId'])
                     repostcom.reply('It has been determined that this is a false positive. Sorry for the error')
                 except:
-                    logerror('Failed to reply')
+                    logerror('Failed to reply', 3, "False positive reply")
                 return 200
         logp('Report rejected')
         return 400
@@ -67,7 +64,7 @@ class ServerEventHandler:
 ps = Posts(sub)
 st = Stats(statspost, statstr)
 plog = ProcessedLogger()
-ser = Server(port=port, repfalsepos=ServerEventHandler.ReportFalsePositive)
+Server.start(port=port, repfalsepos=ServerEventHandler.ReportFalsePositive)
 
 def refresh():
     logp('Started refresh thread')
@@ -84,8 +81,7 @@ def refresh():
             if reddit.user.me() == name:
                 logp("connection ok")
         except:
-            logerror('Failed to refresh reddit. Terminating script')
-            exit(1)
+            logerror('Failed to refresh reddit', 5)
 
 def main():
     logp("Starting bot")
@@ -107,11 +103,16 @@ def main():
             print("Finished processing")
             time.sleep(30)
     except Exception as e:
-        logerror(str(e))
-        logp("Exiting")
+        logerror(str(e), 10)
+        logp("Critical error has occured. Waiting for shutdown request")
+        try:
+            Server.waitforexit()
+        except KeyboardInterrupt:
+            pass
         exit(1)
     except KeyboardInterrupt:
         logp('Intrerrupted, exiting')
+        Server.exit()
         exit(0)
 
 def exit(code):
@@ -126,7 +127,7 @@ def comment(text, post):
         logp('Replied succesfully')
         return com.id
     except Exception as e:
-        logerror("Couldn't reply: " + str(e))
+        logerror("Couldn't reply: " + str(e), 4, "Replying to a repost")
         return None
 
 def processpost(subm):
@@ -223,7 +224,7 @@ def processpost(subm):
         try:
             rp.downvote()
         except:
-            logerror("Couldn't downvote")
+            logerror("Couldn't downvote", 2)
 
         # try:
         #     lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
@@ -251,6 +252,7 @@ def loop():
     plog.write()
     st.procposts = len(ps.procp)
     st.indposts = len(ps.posts)
+    st.writefile()
 
 if __name__== "__main__":
     main()

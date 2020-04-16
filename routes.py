@@ -53,6 +53,13 @@ def GETerrors(h):
     with open('err.txt', 'rb') as f:
         h.wfile.write(f.read())
 
+def GETerrorsjson(h):
+    respond(h, 200)
+    h.send_header("Content-type", "text/json")
+    h.end_headers()
+    with open('err.json', 'rb') as f:
+        h.wfile.write(f.read())
+
 def GETplog(h):
     respond(h, 200)
     h.send_header("Content-type", "text/json")

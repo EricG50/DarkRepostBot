@@ -3,10 +3,19 @@ import threading
 import json
 from log import *
 from http.server import BaseHTTPRequestHandler,HTTPServer
+import sys
+import os
+import time
 
 class PostHanlder():
+    @classmethod
+    def closeserver(cls):
+        time.sleep(15)
+        Server.server.shutdown()
+
     def setMethods(self, kwargs):
         self.repfalsepos = kwargs.get('repfalsepos', None)
+
     def handle(self, path, h, body):
         getattr(self, path)(h, body)
 
@@ -26,9 +35,22 @@ class PostHanlder():
                 logp(f"User {user['name']} IP:{user['ip']} logged out")
                 h.send_response(200)
                 h.end_headers()
+    
+    def shutdown(self, h, body):
+        force = body.get('force', False)
+        logp(f"Recieved shutdown request from user {body['sender']} reason: {body.get('reason')} force: {str(force)}")
+        h.send_response(200)
+        h.end_headers()
+        if force:
+            os._exit(1)
+        else:
+            threading.Thread(target=self.closeserver).start()
         
+ph = PostHanlder()
+
 class Handler(BaseHTTPRequestHandler):
     whitelist = []
+    running = True
     def do_GET(self):
         routename = 'GET' + self.path.lower().replace('/', '')
         try:
@@ -71,22 +93,32 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(403)
         self.end_headers()
 
+    def log_message(self, format, *args):
+        log('"{}" {} {}'.format(args))
+
     def servererror(self, message):
-        logerror(message)
+        logerror(message, 5)
         self.send_response(500, message)
         self.end_headers()
     def invalid_route(self):
         self.send_response(404, 'Not found')
         self.end_headers()
 
-ph = PostHanlder()
-
 class Server:
-    def __init__(self, **kwargs):
+    @classmethod
+    def start(cls, **kwargs):
         ph.setMethods(kwargs)
-        self.server = HTTPServer(('', kwargs.get('port', 80)), Handler)
-        self.servThread = threading.Thread(target=self.serve)
-        self.servThread.start()
-    def serve(self):
-        print('Server started on port ' + str(self.server.server_port))
-        self.server.serve_forever()
+        cls.server = HTTPServer(('', kwargs.get('port', 80)), Handler)
+        cls.servThread = threading.Thread(target=cls.serve)
+        cls.servThread.start()
+    @classmethod
+    def waitforexit(cls):
+        cls.servThread.join()
+    @classmethod
+    def exit(cls):
+        cls.server.shutdown()
+    @classmethod
+    def serve(cls):
+        logp('Server started on port ' + str(cls.server.server_port))
+        cls.server.serve_forever()
+        logp('Server stopped')

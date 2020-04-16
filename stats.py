@@ -37,7 +37,7 @@ class Stats:
             self.statspost.edit(statstring)
             logp('Succesfully uploaded statistics')
         except:
-            logerror('Failed to upload statistics')
+            logerror('Failed to upload statistics', 5)
         
     def writefile(self):
         self.stats['reposts'] = self.reposts
@@ -45,7 +45,7 @@ class Stats:
         self.stats['processedposts'] = self.procposts
         self.stats['falsepositives'] = self.falsepos
         with open(self.statfile, 'w') as f:
-            json.dump(self.stats, f)
+            json.dump(self.stats, f, indent=4)
         
     def uploadthread(self):
         logp('Started stats uploader thread')

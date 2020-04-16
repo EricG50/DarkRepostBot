@@ -14,11 +14,25 @@ def logp(message):
         time = datetime.utcnow()
         logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), message))
 
-def logerror(err):
+def logerror(err, sev, context=None):
     logp('Error: ' + err)
+    time = datetime.utcnow()
     with open("err.txt", 'a') as logf:
-        time = datetime.utcnow()
         logf.write(logstr.format(time.strftime("%d/%m/%Y %H:%M:%S"), err))
+    if os.path.isfile('err.json'):
+        with open('err.json', 'r') as f:
+            errors = json.load(f)
+    else:
+        errors = { 'errors': [] }
+    logobj = {
+        'time': time.timestamp(),
+        'error': err,
+        'context': context,
+        'severity': sev
+    }
+    errors['errors'].append(logobj)
+    with open('err.json', 'w') as f:
+        json.dump(errors, f, indent=4)
 
 class ProcessedLogger:
     logfile = 'procplog.json'
@@ -36,4 +50,4 @@ class ProcessedLogger:
         self.posts['falsepositives'].append(logobj)
     def write(self):
         with open(self.logfile, 'w') as f:
-            json.dump(self.posts, f)
+            json.dump(self.posts, f, indent=4)
