@@ -37,7 +37,7 @@ class Stats:
             self.statspost.edit(statstring)
             logp('Succesfully uploaded statistics')
         except:
-            logerror('Failed to upload statistics', 5)
+            ErrLog.log('Failed to upload statistics', 4)
         
     def writefile(self):
         self.stats['reposts'] = self.reposts

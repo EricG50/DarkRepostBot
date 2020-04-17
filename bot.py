@@ -43,24 +43,27 @@ class ServerEventHandler:
         sender = body['sender']
         logp(f'Recieved false positive report ID:{id} Message: {message} from {sender}')
         for i, repost in enumerate(plog.posts['reposts']):
-            rid = repost['url'].split('/')[-1]
+            rid = urltoId(repost['url'])
             if rid == id:
                 repost['falsePositive'] = True
                 repost['falsePositivemessage'] = message
                 plog.posts['reposts'][i] = repost
                 plog.logfalsepos(repost)
+                plog.write()
                 logp('Report accepted')
                 st.falsepos += 1
+                st.writefile()
                 #st.uploadstats()
                 try:
                     repostcom = reddit.comment(id= repost['commentId'])
                     repostcom.reply('It has been determined that this is a false positive. Sorry for the error')
                 except:
-                    logerror('Failed to reply', 3, "False positive reply")
+                    ErrLog.log('Failed to reply', 3, "False positive reply")
                 return 200
         logp('Report rejected')
         return 400
 
+ErrLog.load()
 ps = Posts(sub)
 st = Stats(statspost, statstr)
 plog = ProcessedLogger()
@@ -81,7 +84,7 @@ def refresh():
             if reddit.user.me() == name:
                 logp("connection ok")
         except:
-            logerror('Failed to refresh reddit', 5)
+            ErrLog.log('Failed to refresh reddit', 5)
 
 def main():
     logp("Starting bot")
@@ -89,7 +92,7 @@ def main():
     if reddit.user.me() == name:
         logp("connection ok")
     else:
-        logerror("failed to connect")
+        ErrLog.log("failed to connect", 10)
         return
     
     refthread = threading.Thread(target=refresh)
@@ -103,7 +106,7 @@ def main():
             print("Finished processing")
             time.sleep(30)
     except Exception as e:
-        logerror(str(e), 10)
+        ErrLog.log(str(e), 10)
         logp("Critical error has occured. Waiting for shutdown request")
         try:
             Server.waitforexit()
@@ -127,7 +130,7 @@ def comment(text, post):
         logp('Replied succesfully')
         return com.id
     except Exception as e:
-        logerror("Couldn't reply: " + str(e), 4, "Replying to a repost")
+        ErrLog.log("Couldn't reply: " + str(e), 4, "Replying to a repost")
         return None
 
 def processpost(subm):
@@ -148,7 +151,8 @@ def processpost(subm):
         'commentId': None,
         'bestmatch': {},
         'closematches': [],
-        'repost': False
+        'repost': False,
+        'potentialrepost': False
     }
 
     repost = False
@@ -194,8 +198,8 @@ def processpost(subm):
             op = bm
             rp = subm
 
-        log('Post is a repost, url: ' + rp.shortlink)
-        print('Found repost')
+        log('Post is a repost')
+        print('Found repost url: ' + rp.shortlink)
 
         for match in logobj['closematches']:
             t = match['time']
@@ -224,20 +228,12 @@ def processpost(subm):
         try:
             rp.downvote()
         except:
-            logerror("Couldn't downvote", 2)
-
-        # try:
-        #     lgs = replogstr.format(rp.shortlink, rp.title, rp.selftext, op.shortlink, op.title, op.selftext, bestmatch)
-        #     with open('replog.txt', 'a') as rep:
-        #         rep.write(lgs)
-        # except:
-        #     logerror('Error logging repost')
-        #     try:
-        #         with open('replog.txt', 'a') as rep:
-        #             lgs = replogstr.format(rp.shortlink, 'Error', 'Error', op.shortlink, 'Error', 'Error', bestmatch)
-        #             rep.write(lgs)
-        #     except:
-        #         pass
+            ErrLog.log("Couldn't downvote", 2)
+    elif bestmatch > 70:
+        print('Found potential repost url: ' + subm.shortlink)
+        log('Post is a potential repost')
+        logobj['potentialrepost'] = True
+        plog.logpotrepost(logobj)
     else:
         log('Post is NOT a repost. Bestmatch: ' + str(bestmatch) + ' ' + idtoUrl(bestmatchid))
 

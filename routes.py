@@ -24,7 +24,11 @@ def GET(h):
         h.wfile.write(f.read())
 
 def GETauth(h):
-    content_len = int(h.headers.get('Content-Length'))
+    content_len = int(h.headers.get('Content-Length', 0))
+    if content_len == 0:
+            h.send_response(400)
+            h.end_headers()
+            return
     bodytext = h.rfile.read(content_len)
     body = json.loads(bodytext)
     if 'user' not in body or 'password' not in body:
@@ -38,8 +42,9 @@ def GETauth(h):
             key = generateKey()
             h.whitelist.append({ 'ip': h.client_address[0], 'name': user['name'], 'key': key, 'permissions': user['permissions']})
             respond(h, 200)
-            h.send_header("Content-type", "text/plain")
+            h.send_header("Content-type", "text/json")
             h.end_headers()
+            response = { 'key': key, 'permissions': user['permissions'] }
             h.wfile.write(key.encode('utf-8'))
             logp('Request aproved key: ' + key)
             return

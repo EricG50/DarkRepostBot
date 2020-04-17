@@ -55,6 +55,9 @@ def cleanwords(words):
 def idtoUrl(id):
     return 'https://redd.it/' + id
 
+def urltoId(url):
+    return url.split('/')[-1]
+
 def compareposts(title1, text1, title2, text2):
     titlewords1 = cleanwords(cleansubmtext(title1).split(' '))
     textwc1 = 0

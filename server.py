@@ -64,14 +64,18 @@ class Handler(BaseHTTPRequestHandler):
             self.servererror('Server error:' +  str(e))
         
     def do_POST(self):
-        content_len = int(self.headers.get('Content-Length'))
-        bodytext = self.rfile.read(content_len)
-        body = json.loads(bodytext)
-
         path = self.path.lower().replace('/', '')
         if not hasattr(ph, path):
             self.invalid_route()
             return
+
+        content_len = int(self.headers.get('Content-Length', 0))
+        if content_len == 0:
+            self.send_response(400)
+            self.end_headers()
+            return
+        bodytext = self.rfile.read(content_len)
+        body = json.loads(bodytext)
 
         if 'key' not in body:
             self.send_response(400)
@@ -94,7 +98,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def servererror(self, message):
-        logerror(message, 5)
+        ErrLog.log(message, 5)
         self.send_response(500, message)
         self.end_headers()
     def invalid_route(self):
