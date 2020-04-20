@@ -16,6 +16,8 @@ def indexpost(subm, ps):
     ptitle.text = cleantext(title)
     ptext = ET.SubElement(post, 'Text')
     ptext.text = cleantext(text)
+    author = ET.SubElement(post, 'Author')
+    author.text = subm.author.name
     time = ET.SubElement(post, 'Time')
     time.text = str(subm.created_utc)
     pid = ET.SubElement(post, 'Id')
@@ -33,6 +35,8 @@ def indexpostjson(subm, ps):
     ptitle.text = cleantext(title)
     ptext = ET.SubElement(post, 'Text')
     ptext.text = cleantext(text)
+    author = ET.SubElement(post, 'Author')
+    author.text = subm['author']
     time = ET.SubElement(post, 'Time')
     time.text = str(subm['created_utc'])
     pid = ET.SubElement(post, 'Id')

@@ -14,7 +14,8 @@ class PostHanlder():
         Server.server.shutdown()
 
     def setMethods(self, kwargs):
-        self.repfalsepos = kwargs.get('repfalsepos', None)
+        self.Repfpos = kwargs.get('repfalsepos', None)
+        self.Revpotrep = kwargs.get('revpotrep', None)
 
     def handle(self, path, h, body):
         getattr(self, path)(h, body)
@@ -24,7 +25,7 @@ class PostHanlder():
             h.send_response(400)
             h.end_headers()
             return
-        response = self.repfalsepos(body)
+        response = self.Repfpos(body)
         h.send_response(response)
         h.end_headers()
 
@@ -45,26 +46,48 @@ class PostHanlder():
             os._exit(1)
         else:
             threading.Thread(target=self.closeserver).start()
+    
+    def reviewpotentialrepost(self, h, body):
+        if 'id' not in body or 'value' not in body:
+            h.send_response(400)
+            h.end_headers()
+            return
+
+        id = body['id']
+        value = body['value']
+        
+        logp(f"Review of potential repost by {body['sender']} postid: {id} value: {str(value)}")
+        response = self.Revpotrep(id, value)
+        h.send_response(response)
+        h.end_headers()
         
 ph = PostHanlder()
 
 class Handler(BaseHTTPRequestHandler):
     whitelist = []
-    running = True
+    def processpath(self) -> str:
+        rawpath = self.path.lower()[1:]
+        subpaths = rawpath.split('/')
+        if len(subpaths) > 1:
+            self.params = subpaths[1:]
+        else:
+            self.params = None
+        return subpaths[0]   
+    
     def do_GET(self):
-        routename = 'GET' + self.path.lower().replace('/', '')
-        try:
-            route = getattr(routes, routename)
-        except AttributeError:
+        routename = 'GET' + self.processpath()
+        if hasattr(routes, routename):
+            try:
+                getattr(routes, routename)(self)
+            except Exception as e:
+                self.servererror('Server error:' +  str(e))
+                return
+        else:
             self.invalid_route()
-            return
-        try:
-            route(self)
-        except Exception as e:
-            self.servererror('Server error:' +  str(e))
         
     def do_POST(self):
-        path = self.path.lower().replace('/', '')
+        path = self.processpath()
+        
         if not hasattr(ph, path):
             self.invalid_route()
             return

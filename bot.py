@@ -20,6 +20,7 @@ name = dataroot.find('username').text
 secret = dataroot.find('secret').text
 password = dataroot.find('password').text
 replystr = dataroot.find('replystr').text
+shortreplystr = dataroot.find('shortreplystr').text
 statstr = dataroot.find('statsformat').text
 sub = dataroot.find('subreddit').text
 client_id = dataroot.find('clientid').text
@@ -62,12 +63,38 @@ class ServerEventHandler:
                 return 200
         logp('Report rejected')
         return 400
+    @classmethod
+    def ReviewPotentaialRepost(cls, id, val) -> int:
+        target = None
+        for i, post in enumerate(plog.posts['potentialreposts']):
+            if urltoId(post['url']) == id:
+                post['potentialrepost'] = False
+                post['repost'] = val
+                target = post
+                del plog.posts['potentialreposts'][i]
+                break
+        if target == None:
+            return 404
+        st.potrep -= 1
+        if val:
+            st.reposts += 1
+            logp('Potential repost confirmed repost url: ' + target['url'])
+            bestmatch = target['bestmatch']
+            reportmessage = f"""{{report: {{ reason: "false-positive", id: "{id}" }}}}"""
+            fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=' + reportmessage
+            reply = shortreplystr.format(bestmatch['match'], bestmatch['url'], len(ps.posts), fplink)
+            target['commentId'] = comment(reply, reddit.submission(id= id))
+            plog.posts['reposts'].append(target)
+        for i, post in enumerate(plog.posts['processedposts']):
+            if urltoId(post['url']) == id:
+                plog.posts['processedposts'][i] = target
+        return 200
 
 ErrLog.load()
 ps = Posts(sub)
 st = Stats(statspost, statstr)
 plog = ProcessedLogger()
-Server.start(port=port, repfalsepos=ServerEventHandler.ReportFalsePositive)
+Server.start(port=port, repfalsepos=ServerEventHandler.ReportFalsePositive, revpotrep=ServerEventHandler.ReviewPotentaialRepost)
 
 def refresh():
     logp('Started refresh thread')
@@ -136,7 +163,6 @@ def comment(text, post):
 def processpost(subm):
     title1 = subm.title
     text1 = subm.selftext
-    
 
     lastseenurl = ''
     lastseentime = 0
@@ -190,36 +216,39 @@ def processpost(subm):
     if repost:
         bm = reddit.submission(id= bestmatchid)
         st.reposts = st.reposts + 1
-        if bm.created_utc > subm.created_utc:
-            op = subm
-            rp = bm
-            log("Found a repost of this " + rp.shortlink)
-        else:
-            op = bm
-            rp = subm
+        # if bm.created_utc > subm.created_utc:
+        #     op = subm
+        #     rp = bm
+        #     log("Found a repost of this " + rp.shortlink)
+        # else:
+        op = bm
+        rp = subm
 
         log('Post is a repost')
         print('Found repost url: ' + rp.shortlink)
 
-        for match in logobj['closematches']:
-            t = match['time']
-            if t > lastseentime:
-                lastseentime = t
-                lastseenurl = match['url']
+        reportmessage = f"""{{report: {{ reason: "false-positive", id: "{rp.id}" }}}}"""
+        fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=' + reportmessage
+
+        if found > 1:
+            for match in logobj['closematches']:
+                t = match['time']
+                if t > lastseentime:
+                    lastseentime = t
+                    lastseenurl = match['url']
             if t < firstseentime:
                 firstseentime = t
                 firstseenurl = match['url']
+            fs = datetime.utcfromtimestamp(firstseentime)
+            ls = datetime.utcfromtimestamp(lastseentime)
         
-        plural = ''
-        if found > 1:
-            plural = 's'
-        fs = datetime.utcfromtimestamp(firstseentime)
-        ls = datetime.utcfromtimestamp(lastseentime)
-        reportmessage = f"""{{report: {{ reason: "false-positive", url: "{rp.shortlink}" }}}}"""
-        fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=' + reportmessage
-        reply = replystr.format(found, bestmatch, op.shortlink, plural, firstseenurl,
+            reply = replystr.format(found, bestmatch, op.shortlink, firstseenurl,
                                 fs.strftime('%d/%m/%Y %H:%M:%S'), lastseenurl,
                                 ls.strftime('%d/%m/%Y %H:%M:%S'), len(ps.posts), fplink)
+
+        else:
+            reply = shortreplystr.format(bestmatch, op.shortlink, len(ps.posts), fplink)
+        
         log('Replying:\n' + reply)
         logobj['commentId'] = comment(reply, rp)
 
@@ -230,6 +259,7 @@ def processpost(subm):
         except:
             ErrLog.log("Couldn't downvote", 2)
     elif bestmatch > 70:
+        st.potrep += 1
         print('Found potential repost url: ' + subm.shortlink)
         log('Post is a potential repost')
         logobj['potentialrepost'] = True

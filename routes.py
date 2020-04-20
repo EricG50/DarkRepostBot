@@ -3,6 +3,8 @@ import json
 import hashlib
 import string
 import random
+from posts import Posts
+from util import *
 from log import *
 from http.server import BaseHTTPRequestHandler
 
@@ -18,10 +20,34 @@ def generateKey(size=10, chars=string.ascii_lowercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
 def GET(h):
-    h.send_header("Content-type", "text/html")
     respond(h, 200)
+    h.send_header("Content-type", "text/html")
+    h.end_headers()
     with open('www/index.html', 'rb') as f:
         h.wfile.write(f.read())
+
+def GETpost(h):
+    if h.params == None:
+        h.send_response(400)
+        h.end_headers()
+        return
+    postid = h.params[0]
+    for post in Posts.posts:
+        if post.find('Id').text == postid:
+            h.send_response(200)
+            h.send_header("Content-type; charset=UTF-8", "text/json")
+            h.end_headers()
+            response = {
+                'title': post.find('Title').text,
+                'text': post.find('Text').text,
+                'author': post.find('Author').text,
+                'time': post.find('Time').text,
+                'url': idtoUrl(postid)
+            }
+            h.wfile.write(json.dumps(response, indent=4).encode('utf-8'))
+            return
+    h.send_response(404, 'Post is not in index')
+    h.end_headers()
 
 def GETauth(h):
     content_len = int(h.headers.get('Content-Length', 0))
@@ -42,7 +68,7 @@ def GETauth(h):
             key = generateKey()
             h.whitelist.append({ 'ip': h.client_address[0], 'name': user['name'], 'key': key, 'permissions': user['permissions']})
             respond(h, 200)
-            h.send_header("Content-type", "text/json")
+            h.send_header("Content-type; charset=UTF-8", "text/json")
             h.end_headers()
             response = { 'key': key, 'permissions': user['permissions'] }
             h.wfile.write(key.encode('utf-8'))
@@ -53,28 +79,28 @@ def GETauth(h):
 
 def GETerrors(h):
     respond(h, 200)
-    h.send_header("Content-type", "text/plain")
+    h.send_header("Content-type; charset=UTF-8", "text/plain")
     h.end_headers()
     with open('err.txt', 'rb') as f:
         h.wfile.write(f.read())
 
 def GETerrorsjson(h):
     respond(h, 200)
-    h.send_header("Content-type", "text/json")
+    h.send_header("Content-type; charset=UTF-8", "text/json")
     h.end_headers()
     with open('err.json', 'rb') as f:
         h.wfile.write(f.read())
 
 def GETplog(h):
     respond(h, 200)
-    h.send_header("Content-type", "text/json")
+    h.send_header("Content-type; charset=UTF-8", "text/json")
     h.end_headers()
     with open('procplog.json', 'rb') as f:
         h.wfile.write(f.read())
 
 def GETstats(h):
     respond(h, 200)
-    h.send_header("Content-type", "text/json")
+    h.send_header("Content-type; charset=UTF-8", "text/json")
     h.end_headers()
     with open('stats.json', 'rb') as f:
         h.wfile.write(f.read())

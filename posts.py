@@ -12,8 +12,8 @@ class Posts:
         if not os.path.isfile(self.postsfile): 
             self.index(subreddit)
         else:
-            self.postsxml = ET.parse(self.postsfile)
-            self.posts = self.postsxml.getroot()
+            Posts.postsxml = ET.parse(self.postsfile)
+            Posts.posts = Posts.postsxml.getroot()
         if not os.path.isfile(self.procpfile):
             procpstr = ''
         else:
@@ -29,13 +29,13 @@ class Posts:
                 method(subm)
                 self.procp.append(subm.id)
     def writefiles(self):
-        self.postsxml.write(self.postsfile)
+        Posts.postsxml.write(self.postsfile)
         with open(self.procpfile, 'w') as f:
             for id in self.procp:
                 f.write(id + ',')
     def index(self, subreddit):
         logp('Started indexing')
-        self.posts = ET.Element('posts')
+        Posts.posts = ET.Element('posts')
         start = int(datetime(2018, 1, 1).timestamp())
         (postsjson, start) = getPushshiftData(sub= subreddit, after= start)
         postsarray = postsjson['data']
@@ -48,6 +48,6 @@ class Posts:
         logp('Finished querrying for posts')
         for subm in postsarray:
             indexpostjson(subm, self)
-        self.postsxml = ET.ElementTree(self.posts)
-        self.postsxml.write(self.postsfile)
+        Posts.postsxml = ET.ElementTree(Posts.posts)
+        Posts.postsxml.write(self.postsfile)
         logp('Finished indexing posts')

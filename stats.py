@@ -13,7 +13,8 @@ class Stats:
         'reposts': 0,
         'indexedposts': 0,
         'processedposts': 0,
-        'falsepositives': 0
+        'falsepositives': 0,
+        'potentialreposts': 0
     }
     def __init__(self, statspost, formatstring):
         if os.path.isfile(self.statfile):
@@ -25,6 +26,7 @@ class Stats:
         self.indposts = self.stats['indexedposts']
         self.procposts = self.stats['processedposts']
         self.falsepos = self.stats['falsepositives']
+        self.potrep = self.stats['potentialreposts']
         self.upThread = threading.Thread(target=self.uploadthread)
         self.upThread.start()
 
@@ -33,7 +35,8 @@ class Stats:
             repostrate = str((float(self.reposts - self.falsepos) / self.procposts) * 100)
             errorrate = str((float(self.falsepos) / self.reposts) * 100)
             time = datetime.utcnow()
-            statstring = self.formstr.format(self.indposts, self.reposts, self.procposts, repostrate, self.falsepos, errorrate, time.strftime('%d/%m/%Y %H:%M:%S'))
+            statstring = self.formstr.format(self.indposts, self.reposts, self.procposts, repostrate,
+                self.falsepos, errorrate, time.strftime('%d/%m/%Y %H:%M:%S'), self.falsepos)
             self.statspost.edit(statstring)
             logp('Succesfully uploaded statistics')
         except:
@@ -44,6 +47,7 @@ class Stats:
         self.stats['indexedposts'] = self.indposts
         self.stats['processedposts'] = self.procposts
         self.stats['falsepositives'] = self.falsepos
+        self.stats['potentialreposts'] = self.potrep
         with open(self.statfile, 'w') as f:
             json.dump(self.stats, f, indent=4)
         
