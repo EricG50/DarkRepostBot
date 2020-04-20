@@ -102,5 +102,5 @@ def GETstats(h):
     respond(h, 200)
     h.send_header("Content-type; charset=UTF-8", "text/json")
     h.end_headers()
-    with open('stats.json', 'rb') as f:
+    with open('stat.json', 'rb') as f:
         h.wfile.write(f.read())

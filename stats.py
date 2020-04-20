@@ -36,7 +36,7 @@ class Stats:
             errorrate = str((float(self.falsepos) / self.reposts) * 100)
             time = datetime.utcnow()
             statstring = self.formstr.format(self.indposts, self.reposts, self.procposts, repostrate,
-                self.falsepos, errorrate, time.strftime('%d/%m/%Y %H:%M:%S'), self.falsepos)
+                self.falsepos, errorrate, time.strftime('%d/%m/%Y %H:%M:%S'), self.potrep)
             self.statspost.edit(statstring)
             logp('Succesfully uploaded statistics')
         except:
