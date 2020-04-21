@@ -83,6 +83,7 @@ class ServerEventHandler:
             reportmessage = f"""{{report: {{ reason: "false-positive", id: "{id}" }}}}"""
             fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=' + reportmessage
             reply = shortreplystr.format(bestmatch['match'], bestmatch['url'], len(ps.posts), fplink)
+            log('Replying:\n' + reply)
             target['commentId'] = comment(reply, reddit.submission(id= id))
             plog.posts['reposts'].append(target)
         for i, post in enumerate(plog.posts['processedposts']):
@@ -164,11 +165,6 @@ def processpost(subm):
     title1 = subm.title
     text1 = subm.selftext
 
-    lastseenurl = ''
-    lastseentime = 0
-    firstseenurl = ''
-    firstseentime = subm.created_utc
-
     logobj = {
         'title': title1,
         'author': subm.author.name,
@@ -231,14 +227,19 @@ def processpost(subm):
         fplink = f'https://www.reddit.com/message/compose?to=/r/darkrepostbot&subject=False-positive&message=' + reportmessage
 
         if found > 1:
+            lastseenurl = ''
+            lastseentime = 0
+            firstseenurl = ''
+            firstseentime = subm.created_utc
             for match in logobj['closematches']:
                 t = match['time']
                 if t > lastseentime:
                     lastseentime = t
                     lastseenurl = match['url']
-            if t < firstseentime:
-                firstseentime = t
-                firstseenurl = match['url']
+                if t < firstseentime:
+                    firstseentime = t
+                    firstseenurl = match['url']
+
             fs = datetime.utcfromtimestamp(firstseentime)
             ls = datetime.utcfromtimestamp(lastseentime)
         
